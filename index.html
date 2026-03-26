@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Lit You Up — Consulting System</title>
+<meta name="description" content="Lit You Up 컨설팅 시스템 — 학생의 지속 가능한 성장">
+<meta name="theme-color" content="#1B4332">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lit You Up">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%231B4332'/%3E%3Ctext x='50' y='62' text-anchor='middle' font-family='serif' font-weight='900' font-size='40' fill='white'%3ELU%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%231B4332'/%3E%3Ctext x='50' y='62' text-anchor='middle' font-family='serif' font-weight='900' font-size='40' fill='white'%3ELU%3C/text%3E%3C/svg%3E">
+
+<!-- PWA Manifest (inline) -->
+<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Lit%20You%20Up%22%2C%22short_name%22%3A%22LitYouUp%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23F7F5F0%22%2C%22theme_color%22%3A%22%231B4332%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%2520viewBox%3D'0%25200%2520100%2520100'%253E%253Crect%2520width%3D'100'%2520height%3D'100'%2520rx%3D'20'%2520fill%3D'%25231B4332'%2F%253E%253Ctext%2520x%3D'50'%2520y%3D'62'%2520text-anchor%3D'middle'%2520font-family%3D'serif'%2520font-weight%3D'900'%2520font-size%3D'40'%2520fill%3D'white'%253ELU%253C%2Ftext%253E%253C%2Fsvg%253E%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
+
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+
+<!-- ═══ FIREBASE SDK ═══ -->
+<!-- Firebase v9 compat (CDN) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<script>
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  🔥 여기에 Firebase config를 입력하세요                       ║
+// ║  Firebase Console → 프로젝트 설정 → 웹 앱에서 복사            ║
+// ╚══════════════════════════════════════════════════════════════╝
+const firebaseConfig = {
+  apiKey: "AIzaSyCq0l2RDh6LYUWgSG0pUWw8uBvsq5GNFVQ",
+  authDomain: "marcus-coaching.firebaseapp.com",
+  projectId: "marcus-coaching",
+  storageBucket: "marcus-coaching.firebasestorage.app",
+  messagingSenderId: "611003877918",
+  appId: "1:611003877918:web:8f9b6ab9c07d369d55bc0f"
+};
+
+// Firebase 초기화
+let db = null;
+let firebaseReady = false;
+try {
+  if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    firebaseReady = true;
+    console.log("✅ Firebase connected");
+  } else {
+    console.log("⚠️ Firebase config not set — using local storage fallback");
+  }
+} catch(e) {
+  console.log("⚠️ Firebase init failed — using local storage fallback", e);
+}
+
+// ═══ DATA LAYER (Firebase + LocalStorage fallback) ═══
+const DataStore = {
+  async save(collection, id, data) {
+    try {
+      if (firebaseReady && db) {
+        await db.collection(collection).doc(id).set(data, { merge: true });
+      }
+      // Always save to localStorage as backup
+      const key = `lityouup_${collection}_${id}`;
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch(e) { console.error("Save error:", e); }
+  },
+
+  async load(collection, id) {
+    try {
+      if (firebaseReady && db) {
+        const doc = await db.collection(collection).doc(id).get();
+        if (doc.exists) return doc.data();
+      }
+      // Fallback to localStorage
+      const key = `lityouup_${collection}_${id}`;
+      const local = localStorage.getItem(key);
+      return local ? JSON.parse(local) : null;
+    } catch(e) {
+      console.error("Load error:", e);
+      const key = `lityouup_${collection}_${id}`;
+      const local = localStorage.getItem(key);
+      return local ? JSON.parse(local) : null;
+    }
+  },
+
+  async loadAll(collection) {
+    try {
+      if (firebaseReady && db) {
+        const snapshot = await db.collection(collection).get();
+        const results = [];
+        snapshot.forEach(doc => results.push({ id: doc.id, ...doc.data() }));
+        if (results.length > 0) return results;
+      }
+      // Fallback: scan localStorage
+      const results = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith(`lityouup_${collection}_`)) {
+          const data = JSON.parse(localStorage.getItem(key));
+          results.push(data);
+        }
+      }
+      return results;
+    } catch(e) {
+      console.error("LoadAll error:", e);
+      return [];
+    }
+  },
+
+  async remove(collection, id) {
+    try {
+      if (firebaseReady && db) {
+        await db.collection(collection).doc(id).delete();
+      }
+      localStorage.removeItem(`lityouup_${collection}_${id}`);
+    } catch(e) { console.error("Remove error:", e); }
+  },
+
+  async saveAllStudents(students) {
+    // Save master list
+    await this.save("meta", "student_ids", { ids: students.map(s => s.id) });
+    // Save each student
+    for (const s of students) {
+      await this.save("students", s.id, s);
+    }
+  },
+
+  async loadAllStudents() {
+    const meta = await this.load("meta", "student_ids");
+    if (!meta || !meta.ids || meta.ids.length === 0) return null;
+    const students = [];
+    for (const id of meta.ids) {
+      const s = await this.load("students", id);
+      if (s) students.push(s);
+    }
+    return students.length > 0 ? students : null;
+  }
+};
+</script>
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Pretendard', 'Noto Sans KR', -apple-system, sans-serif; color: #1B1815; background: linear-gradient(180deg, #F7F5F0 0%, #EFECE5 100%); min-height: 100vh; }
+
+/* ─── SHARED ─── */
+.fi { opacity: 1; transform: translateY(0); transition: all 0.25s ease; }
+.fo { opacity: 0; transform: translateY(6px); }
+.tag { display: inline-block; padding: 4px 11px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.btn { padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer; font-weight: 700; font-size: 13px; transition: all 0.15s; font-family: inherit; }
+.btn:active { transform: scale(0.97); }
+.bp { background: #1B4332; color: #F0FFF4; }
+.bp:hover { background: #0D3321; }
+.bo { background: transparent; border: 1.5px solid #2D6A4F; color: #2D6A4F; }
+.bo:hover { background: #2D6A4F; color: white; }
+.tb { display: flex; gap: 2px; padding: 3px; background: #E8E4DE; border-radius: 12px; overflow-x: auto; }
+.ti { padding: 9px 16px; border-radius: 9px; border: none; background: transparent; cursor: pointer; font-weight: 600; font-size: 13px; color: #7A7267; transition: all 0.15s; white-space: nowrap; font-family: inherit; }
+.ti.on { background: white; color: #1B1815; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+.st { font-size: 24px; font-weight: 900; letter-spacing: -1px; }
+.ss { font-size: 13px; color: #7A7267; margin: 4px 0 20px; font-weight: 500; }
+.card { background: white; border-radius: 14px; border: 1px solid #E8E4DE; padding: 22px; transition: box-shadow 0.2s; }
+.card.click:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.07); transform: translateY(-2px); cursor: pointer; }
+.stb { padding: 7px 14px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 12px; font-family: inherit; transition: all 0.15s; }
+.stb.on { background: #1B4332; color: #E8F5E9; }
+.stb:not(.on) { background: #EDE9E3; color: #5A5550; }
+.gb { padding: 9px 16px; border-radius: 10px; border: 2px solid; cursor: pointer; font-weight: 800; font-size: 13px; transition: all 0.15s; font-family: inherit; }
+.del-btn { width: 22px; height: 22px; border-radius: 6px; border: none; background: #FFF0F0; color: #C62828; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.del-btn:hover { background: #FFCDD2; }
+.add-btn { padding: 6px 14px; border-radius: 8px; border: 1.5px dashed #B0A99F; background: transparent; color: #7A7267; cursor: pointer; font-size: 12px; font-weight: 600; font-family: inherit; }
+.add-btn:hover { border-color: #2D6A4F; color: #2D6A4F; background: #F0FAF5; }
+.editable { cursor: pointer; border-bottom: 1px dashed #C8E6C9; transition: all 0.15s; }
+.editable:hover { background: #F0FAF5; }
+.edit-input { width: 100%; border: 2px solid #2D6A4F; border-radius: 6px; padding: 4px 8px; font-family: inherit; outline: none; background: #F0FAF5; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.modal { background: white; border-radius: 16px; padding: 28px; width: 100%; max-width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+.save-indicator { position: fixed; bottom: 20px; right: 20px; background: #1B4332; color: white; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; z-index: 100; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.save-indicator.show { opacity: 1; }
+input, textarea { font-family: inherit; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div style="display:flex;align-items:center;justify-content:center;min-height:100vh">
+    <div style="text-align:center">
+      <div style="font-size:32px;margin-bottom:12px">🔄</div>
+      <div style="font-size:16px;color:#7A7267;font-weight:600">Lit You Up 로딩 중...</div>
+    </div>
+  </div>
+</div>
+
+<div id="saveIndicator" class="save-indicator">✓ 저장됨</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// LIT YOU UP — CONSULTING SYSTEM v3.0 (Vanilla JS + Firebase)
+// ═══════════════════════════════════════════════════════════════
+
+const DEFAULT_STUDENTS = [
+  {
+    id: "s1", name: "김서윤", grade: "10", school: "서울국제학교 (SIS)",
+    interests: "환경과학, 데이터분석", gpa: "3.85",
+    narrative: "환경 문제를 데이터로 해결하고 싶은 학생",
+    courses: [
+      { name: "AP Environmental Science", type: "AP", grade: "A-" },
+      { name: "English 10 Honors", type: "Honors", grade: "A" },
+      { name: "Pre-Calculus Honors", type: "Honors", grade: "A-" },
+      { name: "AP World History", type: "AP", grade: "B+" },
+      { name: "Chemistry Honors", type: "Honors", grade: "A" },
+      { name: "Spanish II", type: "Regular", grade: "A" },
+    ],
+    routineRate: 82, weeklyMood: [7, 8, 6, 8, 7, 9, 8],
+    nextSession: "2026-03-09",
+    notes: "AP Environmental Science 프로젝트 마감 임박. 스트레스 관찰 필요.",
+    activities: ["환경동아리 부회장", "데이터사이언스 독학", "지역 하천 정화 프로젝트"],
+    habits: [
+      { name: "25분 집중 블록 3회", streak: 14, target: 21, history: [1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,1] },
+      { name: "수업 전 질문 1개 준비", streak: 8, target: 21, history: [0,0,1,1,1,0,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1] },
+      { name: "저녁 리플렉션 5분", streak: 5, target: 21, history: [0,0,0,1,0,0,1,0,1,0,0,1,1,0,1,1,1,1,1,1,1] },
+    ],
+    energy: [3,4,8,9,7,5,3,4,6,8,7,5,3,2,4,7,8,6,4,3,2,1,1,1],
+    exams: [
+      { subject: "AP Env Sci", date: "2026-02-28", score: "88/100", didntKnow: 2, careless: 3, timeOut: 0, reflection: "생태계 상호작용 파트 복습 필요" },
+      { subject: "English Lit", date: "2026-03-03", score: "A-", didntKnow: 1, careless: 1, timeOut: 2, reflection: "시간 배분 개선 필요" },
+    ],
+    narrativeTimeline: [
+      { date: "2025-09", event: "환경동아리 가입", insight: "처음으로 환경 문제에 관심" },
+      { date: "2025-11", event: "하천 수질 데이터 수집 시작", insight: "데이터가 이야기를 만든다는 걸 깨달음" },
+      { date: "2026-01", event: "Python으로 수질 분석 프로젝트", insight: "환경+기술의 교차점 발견" },
+      { date: "2026-03", event: "AP Env Sci 연구 프로젝트 진행 중", insight: "학교 수업과 개인 관심의 연결" },
+    ],
+  },
+  {
+    id: "s2", name: "이준혁", grade: "11", school: "용산국제학교 (YISS)",
+    interests: "컴퓨터공학, 로보틱스", gpa: "3.92",
+    narrative: "기술로 교육 격차를 줄이고 싶은 엔지니어",
+    courses: [
+      { name: "AP Computer Science A", type: "AP", grade: "A+" },
+      { name: "AP Calculus BC", type: "AP", grade: "A" },
+      { name: "AP English Language", type: "AP", grade: "A-" },
+      { name: "AP US History", type: "AP", grade: "A" },
+      { name: "AP Physics 1", type: "AP", grade: "A-" },
+      { name: "Spanish III Honors", type: "Honors", grade: "A" },
+    ],
+    routineRate: 91, weeklyMood: [8, 8, 9, 7, 8, 8, 9],
+    nextSession: "2026-03-10",
+    notes: "SAT 1차 1520. 목표 1550+. 로보틱스 대회 3월 말.",
+    activities: ["로보틱스팀 캡틴", "코딩교육 봉사 (주 2회)", "교내 CS 연구"],
+    habits: [
+      { name: "25분 집중 블록 4회", streak: 19, target: 21, history: [1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1] },
+      { name: "SAT 단어 20개 암기", streak: 12, target: 21, history: [0,1,0,1,1,1,0,0,1,1,1,1,1,1,0,1,1,1,1,1,1] },
+      { name: "코딩 30분", streak: 21, target: 21, history: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1] },
+    ],
+    energy: [2,3,7,9,8,6,4,3,5,8,9,7,5,3,2,5,7,9,8,6,4,3,2,1],
+    exams: [
+      { subject: "AP CS A", date: "2026-02-25", score: "96/100", didntKnow: 0, careless: 1, timeOut: 0, reflection: "재귀함수 부주의 실수 — 검산 루틴 추가" },
+      { subject: "SAT Practice", date: "2026-03-01", score: "1520", didntKnow: 3, careless: 4, timeOut: 1, reflection: "Reading 속도 개선. Math 부주의 줄이기." },
+    ],
+    narrativeTimeline: [
+      { date: "2024-09", event: "로보틱스팀 합류", insight: "하드웨어+소프트웨어 통합의 매력" },
+      { date: "2025-01", event: "지역아동센터 코딩교육 봉사 시작", insight: "기술의 사회적 가치 체감" },
+      { date: "2025-06", event: "교육용 코딩 플랫폼 프로토타입 개발", insight: "사용자 중심 설계의 중요성" },
+      { date: "2025-09", event: "로보틱스팀 캡틴 선출", insight: "팀 리더십의 무게와 보람" },
+      { date: "2026-01", event: "CS 연구 논문 초안 완성", insight: "학술적 글쓰기와 연구 방법론" },
+      { date: "2026-03", event: "로보틱스 대회 준비 + SAT 재도전", insight: "우선순위 설정의 시험대" },
+    ],
+  },
+];
+
+// ═══ APP STATE ═══
+let state = {
+  tab: "dashboard",
+  selectedId: null,
+  detailTab: "overview",
+  grade: "9",
+  isParent: false,
+  students: [],
+  loaded: false,
+};
+
+// ═══ SAVE / LOAD ═══
+let saveTimeout = null;
+
+function showSaved() {
+  const el = document.getElementById("saveIndicator");
+  el.classList.add("show");
+  setTimeout(() => el.classList.remove("show"), 1500);
+}
+
+function autoSave() {
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async () => {
+    await DataStore.saveAllStudents(state.students);
+    showSaved();
+  }, 800);
+}
+
+
+// ═══ PIN SYSTEM ═══
+const TEACHER_PIN = "M12345";
+const TEACHER_EMAIL_DEFAULT = "ginnie1004@gmail.com";
+
+let pinState = {
+  mode: "login",   // login | teacher | parent
+  role: "teacher", // teacher | parent
+  parentStudentId: null,
+  pinError: "",
+};
+
+function normalizePin(p) { return (p||"").trim().toUpperCase(); }
+function checkTeacherPin(p) { return normalizePin(p) === normalizePin(TEACHER_PIN); }
+function checkStudentPin(student, p) { return normalizePin(p) === normalizePin(student.pin||""); }
+function validatePinFormat(p) { return /^[A-Z][0-9]{5}$/.test(normalizePin(p)); }
+
+function monthKey(y, m) { return y + "-" + String(m).padStart(2,"0"); }
+function monthLabel(key) {
+  var parts = key.split("-");
+  return parts[0] + "년 " + parseInt(parts[1]) + "월";
+}
+function currentMonthKey() {
+  var now = new Date();
+  return monthKey(now.getFullYear(), now.getMonth()+1);
+}
+function getMonthsList() {
+  var months = [], y=2026, m=3;
+  var now = new Date(), ny=now.getFullYear(), nm=now.getMonth()+1;
+  while (y < ny || (y===ny && m<=nm)) {
+    months.push(monthKey(y,m));
+    m++; if(m>12){m=1;y++;}
+  }
+  months.reverse();
+  return months;
+}
+function getReportForStudent(studentId, mk) {
+  var s = state.students.find(function(x){ return x.id===studentId; });
+  if (!s || !s.monthlyReports) return null;
+  return s.monthlyReports.find(function(r){ return r.monthKey===mk; }) || null;
+}
+function saveMonthlyReport(studentId, mk, data) {
+  var students = state.students.map(function(s) {
+    if (s.id !== studentId) return s;
+    var reports = (s.monthlyReports||[]).slice();
+    var idx = reports.findIndex(function(r){ return r.monthKey===mk; });
+    var report = Object.assign({ monthKey: mk }, data, { updatedAt: new Date().toISOString() });
+    if (idx>=0) reports[idx]=report; else reports.unshift(report);
+    return Object.assign({}, s, { monthlyReports: reports });
+  });
+  state.students = students;
+  autoSave();
+  render();
+}
+
+// Login screen styles
+var pinCSS = document.createElement("style");
+pinCSS.textContent = `
+.pin-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#0D2B1E,#1B4332,#2D6A4F);padding:20px;}
+.pin-box{background:white;border-radius:24px;padding:36px 32px;width:100%;max-width:380px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.3);}
+.pin-logo-box{width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#1B4332,#52B788);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+.pin-logo-box span{color:white;font-weight:900;font-size:22px;font-family:"Playfair Display",serif;}
+.pin-ttl{font-family:"Playfair Display",serif;font-size:22px;font-weight:900;color:#1B4332;margin-bottom:4px;}
+.pin-sub2{font-size:13px;color:#9A958C;margin-bottom:24px;}
+.pin-inp{width:100%;padding:14px 16px;border:2px solid #E8E4DE;border-radius:12px;font-size:20px;font-weight:700;text-align:center;letter-spacing:6px;outline:none;transition:border-color .2s;color:#1B4332;font-family:inherit;}
+.pin-inp:focus{border-color:#2D6A4F;}
+.pin-inp.error{border-color:#C62828;}
+.pin-submit{width:100%;padding:14px;border-radius:12px;border:none;background:#1B4332;color:white;font-size:15px;font-weight:700;cursor:pointer;margin-top:12px;font-family:inherit;}
+.pin-err2{color:#C62828;font-size:12px;margin-top:8px;min-height:18px;}
+.role-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px;}
+.role-card{padding:14px 10px;border-radius:12px;border:2px solid #E8E4DE;background:white;cursor:pointer;font-family:inherit;}
+.role-card.sel{border-color:#1B4332;background:#F0FAF5;}
+.role-icon{font-size:24px;margin-bottom:6px;}
+.role-lbl{font-size:13px;font-weight:700;color:#1B4332;}
+.role-slb{font-size:11px;color:#9A958C;margin-top:2px;}
+.st-select{padding:12px 16px;border-radius:12px;border:2px solid #E8E4DE;background:white;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;gap:12px;transition:all .15s;}
+.st-select.sel{border-color:#1B4332;background:#F0FAF5;}
+.st-avatar{width:36px;height:36px;border-radius:50%;background:#E8F5E9;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#1B4332;flex-shrink:0;}
+.report-editor-card{background:white;border-radius:14px;border:1px solid #E8E4DE;padding:22px;margin-bottom:14px;}
+.report-month-pill{display:inline-flex;align-items:center;gap:6px;background:#1B4332;color:white;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:800;margin-bottom:16px;}
+.report-sec{margin-bottom:18px;}
+.report-sec-title{font-size:13px;font-weight:700;color:#7A7267;margin-bottom:8px;}
+.report-textarea{width:100%;padding:10px 12px;border:1.5px solid #E8E4DE;border-radius:10px;font-size:13px;line-height:1.6;resize:none;outline:none;background:#FAFAF8;font-family:inherit;}
+.report-textarea:focus{border-color:#2D6A4F;background:white;}
+.hist-item{background:white;border-radius:12px;border:1px solid #E8E4DE;padding:16px 18px;margin-bottom:10px;cursor:pointer;}
+.hist-item:hover{box-shadow:0 4px 16px rgba(0,0,0,.06);}
+.parent-view-card{background:white;border-radius:14px;border:1px solid #E8E4DE;padding:22px;margin-bottom:14px;}
+.parent-comment{background:#F0FAF5;border:1px solid #C8E6C9;border-radius:12px;padding:14px 16px;margin-top:12px;}
+.parent-next{background:#FFF8E1;border:1px solid #FFE082;border-radius:12px;padding:14px 16px;margin-top:10px;}
+`;
+document.head.appendChild(pinCSS);
+
+var currentEditingReport = null; // {studentId, monthKey}
+
+window.setAttitudeScore = function(n) {
+  document.getElementById("rptAttScore").value = n;
+  document.querySelectorAll(".att-star").forEach(function(s,i){
+    s.textContent = i < n ? "⭐" : "☆";
+  });
+};
+
+window.saveCurrentReport = function(studentId, mk) {
+  var get = function(id) { var el=document.getElementById(id); return el ? el.value.trim() : ""; };
+  var data = {
+    gpa: get("rptGpa"), routineRate: get("rptRoutine"),
+    academicProgress: get("rptAcademic"),
+    attitudeScore: get("rptAttScore"), attitude: get("rptAttitude"),
+    goal: get("rptGoal"), goalResult: get("rptGoalResult"),
+    habitNote: get("rptHabit"), teacherComment: get("rptComment"),
+    nextPlan: get("rptNext")
+  };
+  saveMonthlyReport(studentId, mk, data);
+  showSaved();
+};
+
+window.showReportEditor = function(studentId, monthKeyVal) {
+  currentEditingReport = { studentId: studentId, monthKey: monthKeyVal };
+  render();
+};
+
+window.doLoginTeacher = function() {
+  var inp = document.getElementById("teacherPinInp");
+  if (!inp) return;
+  var pin = inp.value.toUpperCase();
+  if (checkTeacherPin(pin)) {
+    pinState.mode = "teacher";
+    pinState.pinError = "";
+    state.isParent = false;
+    state.tab = "dashboard";
+    render();
+  } else {
+    pinState.pinError = "PIN이 올바르지 않습니다.";
+    inp.classList.add("error");
+    setTimeout(function(){ inp.classList.remove("error"); }, 400);
+    inp.value = "";
+    var errEl = document.getElementById("pinErrMsg");
+    if (errEl) errEl.textContent = pinState.pinError;
+  }
+};
+
+window.doLoginParent = function() {
+  var inp = document.getElementById("parentPinInp");
+  if (!inp) return;
+  var pin = inp.value.toUpperCase();
+  var student = state.students.find(function(s){ return s.id===pinState.parentStudentId; });
+  if (!student) return;
+  if (checkStudentPin(student, pin)) {
+    pinState.mode = "parent";
+    pinState.pinError = "";
+    render();
+  } else {
+    pinState.pinError = "PIN이 올바르지 않습니다.";
+    inp.classList.add("error");
+    setTimeout(function(){ inp.classList.remove("error"); }, 400);
+    inp.value = "";
+    var errEl = document.getElementById("pinErrMsg");
+    if (errEl) errEl.textContent = pinState.pinError;
+  }
+};
+
+window.doSelectParentStudent = function(id) {
+  pinState.parentStudentId = id;
+  pinState.pinError = "";
+  render();
+};
+
+window.doLogout = function() {
+  pinState.mode = "login";
+  pinState.role = "teacher";
+  pinState.parentStudentId = null;
+  pinState.pinError = "";
+  state.isParent = false;
+  state.tab = "dashboard";
+  state.selectedId = null;
+  render();
+};
+
+window.doSetPin = function(studentId) {
+  var inp = document.getElementById("newPinVal");
+  if (!inp) return;
+  var pin = inp.value.toUpperCase();
+  if (!validatePinFormat(pin)) {
+    alert("PIN 형식 오류: 영문1자리 + 숫자5자리 (예: A12345)");
+    return;
+  }
+  updateStudent(studentId, { pin: pin });
+  alert("PIN이 " + pin + "으로 설정됐습니다!");
+};
+
+async function loadData() {
+  const saved = await DataStore.loadAllStudents();
+  state.students = saved && saved.length > 0 ? saved : [...DEFAULT_STUDENTS];
+  state.loaded = true;
+  render();
+}
+
+// ═══ STATE HELPERS ═══
+function updateStudent(id, changes) {
+  state.students = state.students.map(s => s.id === id ? { ...s, ...changes } : s);
+  autoSave(); render();
+}
+
+function addStudent(name, grade, school, pin) {
+  if (!pin) pin = "";
+  const id = "s" + Date.now();
+  state.students.push({
+    id, name, grade, school: school || "학교 미정", pin: pin,
+    interests: "", gpa: "0.00", narrative: "",
+    courses: [], routineRate: 0, weeklyMood: [5,5,5,5,5,5,5],
+    nextSession: "", notes: "", activities: [],
+    habits: [{ name: "새 습관", streak: 0, target: 21, history: Array(21).fill(0) }],
+    energy: Array(24).fill(5), exams: [], narrativeTimeline: [], monthlyReports: [],
+  });
+  autoSave(); render();
+}
+
+function removeStudent(id) {
+  if (!confirm("정말 이 학생을 삭제하시겠습니까?")) return;
+  state.students = state.students.filter(s => s.id !== id);
+  if (state.selectedId === id) state.selectedId = null;
+  DataStore.remove("students", id);
+  autoSave(); render();
+}
+
+function getStudent() { return state.students.find(s => s.id === state.selectedId); }
+
+// ═══ EDITABLE FIELD ═══
+function editableField(value, onSave, style = "", placeholder = "입력하세요", multiline = false) {
+  const id = "ef_" + Math.random().toString(36).substr(2, 9);
+  const display = value || `<span style="color:#B0A99F;font-style:italic">${placeholder}</span>`;
+  return `<span class="editable" id="${id}" style="${style}" onclick="startEdit('${id}', ${multiline})" title="클릭하여 수정"
+    data-value="${(value||'').replace(/"/g, '&quot;')}" data-onsave="${onSave}">${display}</span>`;
+}
+
+window.startEdit = function(id, multiline) {
+  const el = document.getElementById(id);
+  if (!el || el.querySelector("input,textarea")) return;
+  const val = el.dataset.value || "";
+  const onSave = el.dataset.onsave;
+  const style = el.style.cssText;
+  if (multiline) {
+    el.innerHTML = `<textarea class="edit-input" style="${style}" rows="3">${val}</textarea>`;
+  } else {
+    el.innerHTML = `<input class="edit-input" style="${style}" value="${val.replace(/"/g, '&quot;')}">`;
+  }
+  const input = el.querySelector("input,textarea");
+  input.focus();
+  input.addEventListener("blur", () => { eval(onSave.replace("__VAL__", JSON.stringify(input.value))); });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !multiline) { eval(onSave.replace("__VAL__", JSON.stringify(input.value))); }
+    if (e.key === "Escape") { render(); }
+  });
+};
+
+// ═══ RENDER HELPERS ═══
+function moodChartSVG(data, h = 48) {
+  const max=10,min=1,range=max-min,w=data.length*22;
+  let path=`M0,${h}`;data.forEach((d,i)=>{path+=` L${i*22},${h-((d-min)/range)*(h-10)-5}`;});path+=` L${(data.length-1)*22},${h} Z`;
+  let line=data.map((d,i)=>`${i*22},${h-((d-min)/range)*(h-10)-5}`).join(" ");
+  let dots=data.map((d,i)=>{const cy=h-((d-min)/range)*(h-10)-5;return`<circle cx="${i*22}" cy="${cy}" r="4" fill="#fff" stroke="#2D6A4F" stroke-width="2"/><text x="${i*22}" y="${cy-9}" text-anchor="middle" style="font-size:9px;fill:#5A5550;font-weight:600">${d}</text>`;}).join("");
+  return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" style="overflow:visible"><defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2D6A4F" stop-opacity="0.25"/><stop offset="100%" stop-color="#2D6A4F" stop-opacity="0"/></linearGradient></defs><path d="${path}" fill="url(#mg)"/><polyline points="${line}" fill="none" stroke="#2D6A4F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>${dots}</svg>`;
+}
+
+function ringSVG(pct, size=68, sw=5) {
+  const r=(size-sw)/2,c=2*Math.PI*r;
+  return `<svg width="${size}" height="${size}" style="transform:rotate(-90deg)"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#E8E4DE" stroke-width="${sw}"/><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#2D6A4F" stroke-width="${sw}" stroke-dasharray="${c}" stroke-dashoffset="${c-(pct/100)*c}" stroke-linecap="round" style="transition:stroke-dashoffset 0.6s"/><text x="${size/2}" y="${size/2}" text-anchor="middle" dominant-baseline="central" style="transform:rotate(90deg);transform-origin:center;font-size:${size*0.22}px;font-weight:800;fill:#1B1815">${pct}%</text></svg>`;
+}
+
+function habitGridHTML(history) {
+  return `<div style="display:flex;gap:3px;flex-wrap:wrap">${history.map((v,i)=>`<div style="width:16px;height:16px;border-radius:4px;background:${v?"#2D6A4F":"#EDE9E3"};opacity:${v?0.4+(i/history.length)*0.6:0.5}" title="Day ${i+1}"></div>`).join("")}</div>`;
+}
+
+function energyBarHTML(data) {
+  const max=Math.max(...data);
+  const bars=data.map((v,i)=>{const hue=v>=7?150:v>=4?40:0;return`<div style="flex:1;height:${(v/max)*100}%;min-height:3px;background:hsl(${hue},${60+v*3}%,${50+(10-v)*2}%);border-radius:3px 3px 0 0" title="${i}:00 — ${v}/10"></div>`;}).join("");
+  const labels=["12a","","","3a","","","6a","","","9a","","","12p","","","3p","","","6p","","","9p","","",""].map(l=>`<div style="flex:1;font-size:8px;color:#9A958C;text-align:center">${l}</div>`).join("");
+  return `<div style="display:flex;gap:2px;align-items:end;height:60px">${bars}</div><div style="display:flex;gap:2px;margin-top:4px">${labels}</div>`;
+}
+
+function courseTypeTag(type) {
+  const c={AP:{bg:"#FFF0F0",c:"#C62828"},Honors:{bg:"#E3F2FD",c:"#1565C0"},Regular:{bg:"#F0FAF5",c:"#2D6A4F"},Elective:{bg:"#FFF8E1",c:"#E65100"},IB:{bg:"#F3E8FF",c:"#6A1B9A"}};
+  const t=c[type]||c.Regular;
+  return `<span style="font-size:9px;font-weight:800;color:${t.c};background:${t.bg};padding:2px 7px;border-radius:10px">${type}</span>`;
+}
+
+function crisisHTML(mood, routineRate) {
+  const r=mood.slice(-3);const dec=r.every((v,i)=>i===0||v<=r[i-1])&&r[2]<r[0];const a=[];
+  if(dec)a.push("무드 3일 연속 하락");if(routineRate<60)a.push("루틴 60% 미만");if(r[r.length-1]<=4)a.push("최근 무드 4 이하");
+  if(!a.length)return"";
+  return`<div style="background:${a.length>=2?"#FFF0F0":"#FFF8E1"};border:1.5px solid ${a.length>=2?"#FF5252":"#FFB74D"};border-radius:12px;padding:12px 16px;margin-bottom:16px"><div style="font-weight:700;font-size:13px;color:${a.length>=2?"#C62828":"#E65100"};margin-bottom:6px">${a.length>=2?"🚨 위기 감지 — 즉시 개입 필요":"⚠️ 주의 신호 감지"}</div><div style="font-size:12px;color:#5A5550">${a.join(" · ")}</div></div>`;
+}
+
+// ═══ STATIC DATA ═══
+const ROADMAP = {
+  "9":{title:"Foundation",sub:"기반 구축의 해",emoji:"🧱",courses:[{name:"English 9 Honors",type:"Honors",grade:"A",status:"진행 중"},{name:"Algebra II Honors",type:"Honors",grade:"A-",status:"진행 중"},{name:"Biology",type:"Regular",grade:"A",status:"진행 중"},{name:"World History",type:"Regular",grade:"B+",status:"진행 중"}],academics:["GPA 관리 시스템 시작","Honors 과목 수강 시작","영어 에세이 역량 강화","PSAT 8/9 응시"],activities:["핵심 활동 좁히기","클럽 가입/창설","봉사활동 시작"],inner:["리플렉션 습관 정착","실패 기록장 시작","시간 관리 자기 평가"],parent:["월 1회 미팅","질문 방식 전환","활동 선택 존중"]},
+  "10":{title:"Exploration",sub:"깊이를 만드는 해",emoji:"🔭",courses:[{name:"AP Environmental Science",type:"AP",grade:"A-",status:"진행 중"},{name:"English 10 Honors",type:"Honors",grade:"A",status:"진행 중"},{name:"Pre-Calculus Honors",type:"Honors",grade:"A-",status:"진행 중"},{name:"Chemistry Honors",type:"Honors",grade:"A",status:"진행 중"}],academics:["AP/IB 본격 수강","SAT/ACT 준비 시작","밸런스 시스템 구축","Research 탐색"],activities:["핵심 2개 활동 깊이","개인 프로젝트 시작","대회 참가","멘토 찾기"],inner:["자기 서사 초안","비교 차단 훈련","스트레스 관리"],parent:["분기별 전략 미팅","열린 질문","대학 리스트 시작"]},
+  "11":{title:"Convergence",sub:"수렴과 집중의 해",emoji:"🎯",courses:[{name:"AP CS A",type:"AP",grade:"A+",status:"진행 중"},{name:"AP Calculus BC",type:"AP",grade:"A",status:"진행 중"},{name:"AP English Language",type:"AP",grade:"A-",status:"진행 중"},{name:"AP US History",type:"AP",grade:"A",status:"진행 중"}],academics:["도전적 AP/IB — GPA 최고점","SAT/ACT 최종 점수","AP 시험 4~5점","Research 완성"],activities:["핵심 활동 최대 임팩트","리더십 본격 수행","추천서 전략"],inner:["서사 구체화","fit 중심 탐구","불안 관리"],parent:["월 1회 미팅","대학 리스트 조율","에세이 개입 금지"]},
+  "12":{title:"Expression",sub:"표현과 완성의 해",emoji:"🚀",courses:[{name:"AP Calculus",type:"AP",grade:"—",status:"예정"},{name:"AP English Lit",type:"AP",grade:"—",status:"예정"},{name:"AP Physics C",type:"AP",grade:"—",status:"예정"}],academics:["GPA 유지","Mid-Year Report","AP/IB 마무리"],activities:["활동 마무리","최종 프로젝트"],inner:["에세이 작성","인터뷰 준비","건강한 관점"],parent:["EA/ED 전략","자율권 보장","감정적 안전망"],timeline:[{m:"9월",t:"EA/ED 마무리"},{m:"10월",t:"ED/EA 제출"},{m:"11월",t:"RD 에세이"},{m:"12월",t:"EA/ED 결과"},{m:"1월",t:"RD 제출"},{m:"3-4월",t:"결과+결정"},{m:"5/1",t:"Enrollment"}]},
+};
+
+const SESSION = {
+  flow:[{t:"0–5분",n:"체크인",d:"기분/에너지 체크. 수면·식사·운동 확인.",i:"🌡️"},{t:"5–15분",n:"주간 리뷰",d:"루틴 준수율. 잘한 점 1 + 아쉬운 점 1.",i:"📋"},{t:"15–30분",n:"핵심 작업",d:"가장 중요한 1가지 집중.",i:"🎯"},{t:"30–40분",n:"다음 주 설계",d:"할 일 + 마감일 + 우선순위.",i:"📐"},{t:"40–45분",n:"클로징",d:"이번 주 대표 단어. 셀프 체크 과제.",i:"💡"}],
+  monthly:[{w:"Week 1",f:"학업 깊이",c:"#1B4332"},{w:"Week 2",f:"활동 & 프로젝트",c:"#2D6A4F"},{w:"Week 3",f:"내면 성장",c:"#40916C"},{w:"Week 4",f:"통합 리뷰",c:"#52B788"}],
+  tips:["학생이 70% 이상 말하게 하세요.","'지난주 약속' 확인 → 책임감 루프.","감정 먼저, 과제 나중.","칭찬은 구체적으로.","'알겠습니다' → '직접 설명해볼래?'","집중 블록 수로 질문."],
+};
+
+const PARENT = {
+  rules:[{d:"과정과 태도를 칭찬",x:"결과만 묻지 마세요",g:"'노력하는 모습이 좋다'",b:"'시험 몇 점?'"},{d:"열린 질문",x:"유도 질문 금지",g:"'재밌는 거 있어?'",b:"'공부는 하고 있어?'"},{d:"선택 존중",x:"비교 금지",g:"'선택한 이유가 궁금해'",b:"'OO는 벌써...'"},{d:"안전망",x:"불안 전이 금지",g:"'힘들면 얘기해'",b:"'못 가면 어떡해'"}],
+  quarters:[{q:"Q1 (9-11월)",a:"적응 점검, 과목 적절성, 활동 계획"},{q:"Q2 (12-2월)",a:"1학기 리뷰, 겨울방학, 시험 일정"},{q:"Q3 (3-5월)",a:"AP/IB 대비, 여름 계획, 서사 현황"},{q:"Q4 (6-8월)",a:"여름 활동, 다음 학년, 성장 리포트"}],
+};
+
+// ═══ MAIN RENDER ═══
+function render() {
+  // PIN 라우팅
+  if (!state.loaded) {
+    document.getElementById("app").innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center"><div style="text-align:center;color:#7A7267;font-size:16px;font-weight:600">🔄 로딩 중...</div></div>';
+    return;
+  }
+  if (pinState.mode === "login") { renderLoginScreen(); return; }
+  if (pinState.mode === "parent") { renderParentView(); return; }
+  // teacher mode falls through to original render
+  const s = state;
+  const st = getStudent();
+  const avg = s.students.length ? (s.students.reduce((a,x)=>a+parseFloat(x.gpa||0),0)/s.students.length).toFixed(2) : "—";
+  const avgR = s.students.length ? Math.round(s.students.reduce((a,x)=>a+x.routineRate,0)/s.students.length) : 0;
+
+  const tabs = s.isParent
+    ? [{id:"progress",l:"📊 성장 리포트"},{id:"roadmap",l:"🗺️ 로드맵"},{id:"parent-guide",l:"💬 학부모 가이드"}]
+    : [{id:"dashboard",l:"⊞ 대시보드"},{id:"students",l:"◉ 학생 관리"},{id:"monthly",l:"📋 월별 리포트"},{id:"roadmap",l:"◈ 로드맵"},{id:"session",l:"▤ 세션 매뉴얼"},{id:"parent-guide",l:"◇ 학부모 소통"}];
+
+  let content = "";
+
+  // ── DASHBOARD ──
+  if (s.tab === "dashboard" && !s.isParent) {
+    content = `
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div><h2 class="st">Dashboard</h2><p class="ss">전체 학생 현황${firebaseReady?" · Firebase 연동됨 ✓":" · 로컬 저장"}</p></div>
+        <button class="btn bp" onclick="document.getElementById('addModal').style.display='flex'">+ 학생 추가</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:24px">
+        ${[{l:"전체 학생",v:s.students.length,u:"명",bg:"#1B4332"},{l:"평균 루틴",v:avgR,u:"%",bg:"#2D6A4F"},{l:"세션",v:s.students.length,u:"건",bg:"#40916C"},{l:"평균 GPA",v:avg,u:"",bg:"#52B788"}].map(x=>`<div class="card" style="text-align:center;padding:18px;background:${x.bg};border:none"><div style="font-size:30px;font-weight:900;color:white">${x.v}<span style="font-size:14px;opacity:0.7">${x.u}</span></div><div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:2px">${x.l}</div></div>`).join("")}
+      </div>
+      ${s.students.map(st=>`
+        <div class="card click" style="margin-bottom:14px" onclick="state.selectedId='${st.id}';state.detailTab='overview';state.tab='students';render()">
+          ${crisisHTML(st.weeklyMood, st.routineRate)}
+          <div style="display:flex;justify-content:space-between;align-items:start;gap:16px;flex-wrap:wrap">
+            <div style="flex:1;min-width:200px">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="font-weight:800;font-size:18px">${st.name}</span><span class="tag" style="background:#E8F5E9;color:#1B4332">${st.grade}학년</span></div>
+              <div style="font-size:12px;color:#7A7267;margin-bottom:8px">${st.school}</div>
+              ${st.narrative?`<div style="font-size:13px;color:#2D6A4F;font-weight:600;font-style:italic;margin-bottom:12px">"${st.narrative}"</div>`:""}
+            </div>
+            <div style="display:flex;gap:16px;align-items:center">
+              <div style="text-align:center">${ringSVG(st.routineRate,60,4)}<div style="font-size:10px;color:#7A7267;margin-top:4px">루틴</div></div>
+              <div style="text-align:center"><div style="font-size:26px;font-weight:900;color:#1B4332">${st.gpa}</div><div style="font-size:10px;color:#7A7267">GPA</div></div>
+            </div>
+          </div>
+        </div>
+      `).join("")}
+      ${s.students.length===0?'<div class="card" style="text-align:center;padding:40px"><div style="color:#7A7267;margin-bottom:12px">학생을 추가해주세요</div><button class="btn bp" onclick="document.getElementById(\'addModal\').style.display=\'flex\'">+ 첫 학생 추가</button></div>':""}
+    `;
+  }
+
+  // ── STUDENTS ──
+  else if (s.tab === "students" && !s.isParent) {
+    if (!st) {
+      content = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+          <div><h2 class="st">학생 관리</h2><p class="ss">개별 학생 · 클릭하여 편집</p></div>
+          <button class="btn bp" onclick="document.getElementById('addModal').style.display='flex'">+ 학생 추가</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">
+          ${s.students.map(st=>`
+            <div class="card click" onclick="state.selectedId='${st.id}';state.detailTab='overview';render()" style="position:relative">
+              <button class="del-btn" onclick="event.stopPropagation();removeStudent('${st.id}')" style="position:absolute;top:12px;right:12px">✕</button>
+              <div style="font-weight:800;font-size:17px">${st.name}</div>
+              <div style="font-size:12px;color:#7A7267;margin-bottom:8px">${st.school} · ${st.grade}학년</div>
+              <div style="display:flex;gap:14px;font-size:12px;color:#5A5550"><span>GPA <strong>${st.gpa}</strong></span><span>과목 <strong>${(st.courses||[]).length}</strong></span><span>루틴 <strong>${st.routineRate}%</strong></span></div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    } else {
+      // Student detail with sub-tabs
+      const subtabs = [{id:"overview",l:"Overview"},{id:"courses",l:"수강 과목"},{id:"habits",l:"습관"},{id:"energy",l:"에너지"},{id:"exams",l:"시험 복기"},{id:"narrative",l:"서사"}];
+      let detail = "";
+
+      if (s.detailTab === "overview") {
+        detail = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
+          <div class="card">
+            <div style="font-size:15px;font-weight:700;margin-bottom:14px">📊 기본 정보</div>
+            <div style="display:grid;gap:10px">
+              <div><span style="font-size:11px;color:#7A7267">이름</span><div>${editableField(st.name,`updateStudent('${st.id}',{name:__VAL__})`,"font-size:16px;font-weight:700")}</div></div>
+              <div><span style="font-size:11px;color:#7A7267">학교</span><div>${editableField(st.school,`updateStudent('${st.id}',{school:__VAL__})`,"font-size:13px")}</div></div>
+              <div style="display:flex;gap:16px">
+                <div><span style="font-size:11px;color:#7A7267">GPA</span><div>${editableField(st.gpa,`updateStudent('${st.id}',{gpa:__VAL__})`,"font-size:20px;font-weight:900;color:#1B4332")}</div></div>
+                <div><span style="font-size:11px;color:#7A7267">루틴%</span><div>${editableField(String(st.routineRate),`updateStudent('${st.id}',{routineRate:parseInt(__VAL__)||0})`,"font-size:20px;font-weight:900;color:#E65100")}</div></div>
+              </div>
+              <div><span style="font-size:11px;color:#7A7267">관심 분야</span><div>${editableField(st.interests,`updateStudent('${st.id}',{interests:__VAL__})`,"font-size:13px","관심 분야")}</div></div>
+              <div><span style="font-size:11px;color:#7A7267">핵심 서사</span><div>${editableField(st.narrative,`updateStudent('${st.id}',{narrative:__VAL__})`,"font-size:13px;color:#2D6A4F;font-style:italic","핵심 서사")}</div></div>
+              <div><span style="font-size:11px;color:#7A7267">다음 세션</span><div>${editableField(st.nextSession,`updateStudent('${st.id}',{nextSession:__VAL__})`,"font-size:13px","YYYY-MM-DD")}</div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:15px;font-weight:700">🏆 활동</div><button class="add-btn" onclick="const a=[...state.students.find(s=>s.id==='${st.id}').activities,'새 활동'];updateStudent('${st.id}',{activities:a})">+ 추가</button></div>
+            ${st.activities.map((a,i)=>`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><div style="flex:1;padding:7px 10px;background:#F0FAF5;border-radius:8px">${editableField(a,`const a=[...state.students.find(s=>s.id==='${st.id}').activities];a[${i}]=__VAL__;updateStudent('${st.id}',{activities:a})`,"font-size:13px;font-weight:500")}</div><button class="del-btn" onclick="const a=state.students.find(s=>s.id==='${st.id}').activities.filter((_,j)=>j!==${i});updateStudent('${st.id}',{activities:a})">✕</button></div>`).join("")}
+          </div>
+          <div class="card"><div style="font-size:15px;font-weight:700;margin-bottom:14px">🌡️ 주간 무드</div>${moodChartSVG(st.weeklyMood,56)}<div style="display:flex;justify-content:space-between;margin-top:8px">${["월","화","수","목","금","토","일"].map(d=>`<span style="font-size:10px;color:#9A958C">${d}</span>`).join("")}</div></div>
+          <div class="card"><div style="font-size:15px;font-weight:700;margin-bottom:10px">📌 컨설턴트 노트</div>${editableField(st.notes,`updateStudent('${st.id}',{notes:__VAL__})`,"font-size:13px;line-height:1.7;color:#3A3530","관찰 사항, 주의점",true)}</div>
+        </div>`;
+      }
+      else if (s.detailTab === "courses") {
+        detail = `
+          <div class="card" style="margin-bottom:14px;background:#1B4332;border:none;color:white">
+            <div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:15px;font-weight:700;margin-bottom:4px">📖 수강 과목</div><div style="font-size:12px;opacity:0.7">클릭하여 편집 가능</div></div>
+            <button class="add-btn" style="border-color:rgba(255,255,255,0.4);color:white" onclick="const c=[...(state.students.find(s=>s.id==='${st.id}').courses||[]),{name:'New Course',type:'Regular',grade:'—'}];updateStudent('${st.id}',{courses:c})">+ 과목 추가</button></div>
+          </div>
+          ${(st.courses||[]).map((c,i)=>`
+            <div class="card" style="margin-bottom:8px;padding:14px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:200px">
+                  ${courseTypeTag(c.type)}
+                  ${editableField(c.name,`const c=[...state.students.find(s=>s.id==='${st.id}').courses];c[${i}]={...c[${i}],name:__VAL__};updateStudent('${st.id}',{courses:c})`,"font-size:14px;font-weight:600")}
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  ${editableField(c.grade,`const c=[...state.students.find(s=>s.id==='${st.id}').courses];c[${i}]={...c[${i}],grade:__VAL__};updateStudent('${st.id}',{courses:c})`,"font-size:18px;font-weight:900;color:#1B4332;min-width:30px;text-align:center")}
+                  <button class="del-btn" onclick="const c=state.students.find(s=>s.id==='${st.id}').courses.filter((_,j)=>j!==${i});updateStudent('${st.id}',{courses:c})">✕</button>
+                </div>
+              </div>
+            </div>
+          `).join("")}
+        `;
+      }
+      else if (s.detailTab === "habits") {
+        detail = `<div class="card" style="margin-bottom:14px;background:#1B4332;border:none;color:white"><div style="font-size:15px;font-weight:700;margin-bottom:4px">🔥 습관 트래커</div><div style="font-size:12px;opacity:0.7">21일 시스템</div></div>
+          ${st.habits.map(h=>`<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-weight:700;font-size:15px">${h.name}</div><div><span style="font-size:20px;font-weight:900;color:${h.streak>=h.target?"#2D6A4F":"#E65100"}">${h.streak}</span><span style="font-size:12px;color:#9A958C">/${h.target}일</span></div></div>${habitGridHTML(h.history)}<div style="margin-top:10px;height:6px;background:#EDE9E3;border-radius:3px"><div style="height:100%;border-radius:3px;width:${(h.streak/h.target)*100}%;background:${h.streak>=h.target?"linear-gradient(90deg,#2D6A4F,#52B788)":"linear-gradient(90deg,#E65100,#FFB74D)"}"></div></div></div>`).join("")}`;
+      }
+      else if (s.detailTab === "energy") {
+        detail = `<div class="card" style="margin-bottom:14px;background:#1B4332;border:none;color:white"><div style="font-size:15px;font-weight:700;margin-bottom:4px">⚡ 에너지 맵</div></div>
+          <div class="card">${energyBarHTML(st.energy)}</div>`;
+      }
+      else if (s.detailTab === "exams") {
+        detail = `<div class="card" style="margin-bottom:14px;background:#1B4332;border:none;color:white"><div style="font-size:15px;font-weight:700;margin-bottom:4px">📝 시험 복기</div></div>
+          ${st.exams.map(ex=>`<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:14px"><div><div style="font-weight:700;font-size:16px">${ex.subject}</div><div style="font-size:12px;color:#9A958C">${ex.date}</div></div><div style="font-size:22px;font-weight:900;color:#1B4332">${ex.score}</div></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">${[{l:"몰라서",v:ex.didntKnow,c:"#C62828",bg:"#FFF0F0"},{l:"부주의",v:ex.careless,c:"#E65100",bg:"#FFF8E1"},{l:"시간부족",v:ex.timeOut,c:"#1565C0",bg:"#E3F2FD"}].map(c=>`<div style="background:${c.bg};padding:12px;border-radius:10px;text-align:center"><div style="font-size:22px;font-weight:900;color:${c.c}">${c.v}</div><div style="font-size:10px;color:#7A7267">${c.l}</div></div>`).join("")}</div>
+          <div style="background:#FAF8F5;padding:12px;border-radius:8px"><div style="font-size:12px;color:#3A3530">${ex.reflection}</div></div></div>`).join("")}`;
+      }
+      else if (s.detailTab === "narrative") {
+        detail = `<div class="card" style="margin-bottom:14px;background:#1B4332;border:none;color:white"><div style="font-size:15px;font-weight:700;margin-bottom:4px">📖 서사 타임라인</div></div>
+          <div class="card"><div style="position:relative;padding-left:28px"><div style="position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:linear-gradient(180deg,#2D6A4F,#95D5B2)"></div>
+          ${st.narrativeTimeline.map((n,i)=>`<div style="position:relative;margin-bottom:${i<st.narrativeTimeline.length-1?28:0}px"><div style="position:absolute;left:-24px;top:4px;width:14px;height:14px;border-radius:50%;background:#2D6A4F;border:3px solid #E8F5E9"></div><div style="font-size:11px;color:#9A958C;font-weight:700;margin-bottom:4px">${n.date}</div><div style="font-weight:700;font-size:14px;margin-bottom:4px">${n.event}</div><div style="font-size:12px;color:#2D6A4F;font-style:italic;padding:6px 10px;background:#F0FAF5;border-radius:6px;border-left:3px solid #52B788">💡 ${n.insight}</div></div>`).join("")}
+          </div></div>`;
+      }
+
+      content = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+          <div><h2 class="st">${st.name}</h2><p class="ss">${st.school} · ${st.grade}학년 · 클릭하여 편집</p></div>
+          <button class="btn bo" onclick="state.selectedId=null;render()">← 목록</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap">${subtabs.map(t=>`<button class="stb ${s.detailTab===t.id?"on":""}" onclick="state.detailTab='${t.id}';render()">${t.l}</button>`).join("")}</div>
+        ${crisisHTML(st.weeklyMood, st.routineRate)}
+        ${detail}
+      `;
+    }
+  }
+
+  // ── ROADMAP ──
+  else if (s.tab === "roadmap") {
+    const g = ROADMAP[s.grade];
+    const secs = [{t:"📚 학업",items:g.academics},{t:"🏆 활동",items:g.activities},{t:"🧭 내면",items:g.inner},{t:"👨‍👩‍👧 학부모",items:g.parent}];
+    content = `
+      <h2 class="st">학년별 로드맵</h2><p class="ss">학업 · 활동 · 내면 · 학부모 전략</p>
+      <div style="display:flex;gap:6px;margin-bottom:22px;flex-wrap:wrap">${Object.entries(ROADMAP).map(([k,v])=>`<button class="gb" onclick="state.grade='${k}';render()" style="background:${s.grade===k?"#1B4332":"white"};color:${s.grade===k?"white":"#1B4332"};border-color:${s.grade===k?"#1B4332":"#D1CBC0"}">${v.emoji} ${k}학년</button>`).join("")}</div>
+      <div class="card" style="margin-bottom:16px;border-left:4px solid #1B4332"><div style="font-size:22px;font-weight:900;color:#1B4332">${g.emoji} ${g.title} — ${s.grade}학년</div><div style="font-size:14px;color:#7A7267">${g.sub}</div></div>
+      <div class="card" style="margin-bottom:16px"><div style="font-size:15px;font-weight:700;margin-bottom:14px">📖 수강 과목</div>${g.courses.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#FAFAF8;border-radius:8px;margin-bottom:6px;border:1px solid #EDE9E3"><div style="display:flex;align-items:center;gap:10px">${courseTypeTag(c.type)}<span style="font-size:13px;font-weight:600">${c.name}</span></div><span style="font-size:15px;font-weight:800;color:#1B4332">${c.grade}</span></div>`).join("")}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">${secs.map(sec=>`<div class="card"><div style="font-size:15px;font-weight:700;margin-bottom:12px">${sec.t}</div>${sec.items.map((item,i)=>`<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start"><div style="width:20px;height:20px;border-radius:50%;background:#E8F5E9;color:#1B4332;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0">${i+1}</div><div style="font-size:13px;line-height:1.6;color:#3A3530">${item}</div></div>`).join("")}</div>`).join("")}</div>
+      ${g.timeline?`<div class="card" style="margin-top:14px"><div style="font-size:15px;font-weight:700;margin-bottom:14px">📅 타임라인</div>${g.timeline.map((t,i)=>`<div style="display:flex;gap:14px;align-items:stretch"><div style="display:flex;flex-direction:column;align-items:center"><div style="width:12px;height:12px;border-radius:50%;border:3px solid #1B4332;background:white;flex-shrink:0"></div>${i<g.timeline.length-1?'<div style="width:2px;flex:1;background:#D1CBC0;min-height:20px"></div>':""}</div><div style="padding-bottom:14px"><span style="font-weight:800;font-size:13px;color:#1B4332">${t.m}</span> <span style="font-size:13px;color:#5A5550">${t.t}</span></div></div>`).join("")}</div>`:""}
+    `;
+  }
+
+  // ── SESSION ──
+  else if (s.tab === "session") {
+    content = `
+      <h2 class="st">주간 세션 매뉴얼</h2><p class="ss">45분 플로우 · 월간 사이클</p>
+      <div class="card" style="margin-bottom:16px"><div style="font-size:15px;font-weight:700;margin-bottom:14px">⏱️ 45분 플로우</div>
+        ${SESSION.flow.map((f,i)=>`<div style="display:flex;gap:14px;align-items:stretch"><div style="display:flex;flex-direction:column;align-items:center;min-width:44px"><div style="width:44px;height:44px;border-radius:11px;background:hsl(${150+i*10},35%,${94-i*4}%);display:flex;align-items:center;justify-content:center;font-size:18px">${f.i}</div>${i<SESSION.flow.length-1?'<div style="width:2px;flex:1;background:#E8E4DE;min-height:12px"></div>':""}</div><div style="padding-bottom:18px;flex:1"><div style="display:flex;gap:8px;align-items:center;margin-bottom:4px"><span class="tag" style="background:#E8F5E9;color:#1B4332">${f.t}</span><span style="font-weight:700;font-size:14px">${f.n}</span></div><div style="font-size:13px;color:#5A5550;line-height:1.6">${f.d}</div></div></div>`).join("")}
+      </div>
+      <div class="card" style="margin-bottom:16px"><div style="font-size:15px;font-weight:700;margin-bottom:14px">🔄 월간 사이클</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">${SESSION.monthly.map(m=>`<div style="padding:14px;border-radius:10px;background:${m.c};color:white"><div style="font-weight:800;font-size:14px;margin-bottom:4px">${m.w}</div><div style="font-size:12px;opacity:0.9">${m.f}</div></div>`).join("")}</div></div>
+      <div class="card" style="background:#FFFDF5;border-color:#F0E6C8"><div style="font-size:15px;font-weight:700;margin-bottom:12px">💡 운영 원칙</div>${SESSION.tips.map(t=>`<div style="display:flex;gap:8px;margin-bottom:10px"><span style="color:#D4A017;flex-shrink:0">✦</span><span style="font-size:13px;line-height:1.6">${t}</span></div>`).join("")}</div>
+    `;
+  }
+
+  // ── PARENT PROGRESS ──
+  else if (s.tab === "progress" && s.isParent) {
+    content = `<h2 class="st">자녀 성장 리포트</h2><p class="ss">학부모님께 공유되는 현황</p>
+      ${s.students.map(st=>`<div class="card" style="margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px"><div><div style="font-weight:800;font-size:22px">${st.name}</div><div style="font-size:13px;color:#7A7267">${st.school} · ${st.grade}학년</div></div>${ringSVG(st.routineRate,72,5)}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px">${[{l:"GPA",v:st.gpa,bg:"#E8F5E9",c:"#1B4332"},{l:"루틴",v:st.routineRate+"%",bg:"#FFF8E1",c:"#E65100"},{l:"습관",v:Math.round(st.habits.reduce((a,h)=>a+(h.streak/h.target)*100,0)/Math.max(st.habits.length,1))+"%",bg:"#F3E8FF",c:"#6A1B9A"}].map(m=>`<div style="background:${m.bg};padding:14px;border-radius:10px;text-align:center"><div style="font-size:10px;color:#7A7267">${m.l}</div><div style="font-size:22px;font-weight:900;color:${m.c}">${m.v}</div></div>`).join("")}</div>
+        ${(st.courses&&st.courses.length)?`<div style="margin-bottom:16px"><div style="font-size:13px;font-weight:700;margin-bottom:8px">수강 과목</div>${st.courses.map(c=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #F0EDE8"><div style="display:flex;gap:8px;align-items:center">${courseTypeTag(c.type)}<span style="font-size:12px">${c.name}</span></div><span style="font-size:13px;font-weight:800;color:#1B4332">${c.grade}</span></div>`).join("")}</div>`:""}
+        <div style="margin-bottom:16px"><div style="font-size:13px;font-weight:700;margin-bottom:8px">주간 감정</div>${moodChartSVG(st.weeklyMood)}</div>
+        <div style="background:#FAF8F5;padding:14px;border-radius:10px"><div style="font-size:13px;font-weight:700;margin-bottom:6px">컨설턴트 메모</div><div style="font-size:12px;color:#5A5550;line-height:1.7">${st.notes||"메모 없음"}</div></div>
+      </div>`).join("")}`;
+  }
+
+  // ── MONTHLY REPORT ──
+  else if (s.tab === "monthly") {
+    var months = getMonthsList();
+    if (!s.selectedId) {
+      content = '<div><h2 class="st">📋 월별 리포트</h2><p class="ss">학생을 선택해 리포트를 작성하세요</p></div>';
+      content += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">';
+      state.students.forEach(function(st2) {
+        var curReport = getReportForStudent(st2.id, currentMonthKey());
+        var total = (st2.monthlyReports||[]).length;
+        content += '<div class="card click" style="margin-bottom:0" onclick="state.selectedId=\'' + st2.id + '\';currentEditingReport={studentId:\'' + st2.id + '\',monthKey:\'' + currentMonthKey() + '\'};render()">';
+        content += '<div style="font-weight:800;font-size:16px;margin-bottom:4px">' + st2.name + '</div>';
+        content += '<div style="font-size:12px;color:#9A958C;margin-bottom:12px">' + st2.school + ' · ' + st2.grade + '학년</div>';
+        content += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
+        content += curReport ? '<span class="tag" style="background:#E8F5E9;color:#1B4332">✅ 이번달 완료</span>' : '<span class="tag" style="background:#FFF8E1;color:#E65100">⚠️ 미작성</span>';
+        content += '<span class="tag" style="background:#F0F0F0;color:#5A5550">누적 ' + total + '건</span>';
+        content += '</div></div>';
+      });
+      content += '</div>';
+    } else {
+      var stR = state.students.find(function(x){ return x.id===s.selectedId; });
+      if (!stR) { state.selectedId=null; render(); return; }
+      content = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px"><div><h2 class="st">' + stR.name + ' 리포트</h2><p class="ss">월별 리포트 작성 및 히스토리</p></div><button class="btn bo" onclick="state.selectedId=null;currentEditingReport=null;render()">← 목록</button></div>';
+      
+      // Month picker
+      content += '<div class="card" style="margin-bottom:14px"><div style="font-size:14px;font-weight:700;margin-bottom:10px">📅 월 선택</div><div style="display:flex;gap:8px;flex-wrap:wrap">';
+      months.forEach(function(mk) {
+        var exists = (stR.monthlyReports||[]).some(function(r){ return r.monthKey===mk; });
+        var isActive = currentEditingReport && currentEditingReport.studentId===stR.id && currentEditingReport.monthKey===mk;
+        var bg = isActive ? "#1B4332" : exists ? "#E8F5E9" : "white";
+        var clr = isActive ? "white" : exists ? "#1B4332" : "#5A5550";
+        var brd = isActive ? "#1B4332" : "#E8E4DE";
+        content += '<button onclick="currentEditingReport={studentId:\'' + stR.id + '\',monthKey:\'' + mk + '\'};render()" style="padding:6px 12px;border-radius:8px;border:2px solid ' + brd + ';background:' + bg + ';color:' + clr + ';cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">' + monthLabel(mk) + (exists?" ✓":"") + '</button>';
+      });
+      content += '</div></div>';
+
+      // Report editor
+      if (currentEditingReport && currentEditingReport.studentId===stR.id) {
+        var mk = currentEditingReport.monthKey;
+        var rpt = getReportForStudent(stR.id, mk)||{};
+        var attScore = parseInt(rpt.attitudeScore)||0;
+        var attStarsHTML = [1,2,3,4,5].map(function(i){ return '<span class="att-star" onclick="setAttitudeScore(' + i + ')" style="font-size:22px;cursor:pointer">' + (i<=attScore?"⭐":"☆") + '</span>'; }).join("");
+        content += '<div class="report-editor-card">';
+        content += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span class="report-month-pill">📋 ' + monthLabel(mk) + '</span><div style="display:flex;gap:8px"><button class="btn bp" onclick="saveCurrentReport(\'' + stR.id + '\',\'' + mk + '\')">💾 저장</button></div></div>';
+        content += '<div class="report-sec"><div class="report-sec-title">📊 학습 진도 & GPA</div><div style="display:flex;gap:10px;margin-bottom:10px"><div style="flex:1"><div style="font-size:11px;color:#9A958C;margin-bottom:4px">GPA</div><input id="rptGpa" value="' + (rpt.gpa||stR.gpa||"") + '" style="width:100%;padding:9px 12px;border:1.5px solid #E8E4DE;border-radius:8px;font-size:14px;font-weight:700;outline:none;font-family:inherit"></div><div style="flex:1"><div style="font-size:11px;color:#9A958C;margin-bottom:4px">루틴 달성률(%)</div><input id="rptRoutine" value="' + (rpt.routineRate||stR.routineRate||"") + '" style="width:100%;padding:9px 12px;border:1.5px solid #E8E4DE;border-radius:8px;font-size:14px;font-weight:700;outline:none;font-family:inherit"></div></div><textarea id="rptAcademic" class="report-textarea" rows="3" placeholder="이번 달 학습 진도, 주요 성과...">' + (rpt.academicProgress||"") + '</textarea></div>';
+        content += '<div class="report-sec"><div class="report-sec-title">🧠 태도 & 메타인지</div><div style="margin-bottom:8px"><div style="font-size:11px;color:#9A958C;margin-bottom:4px">태도 점수</div><div>' + attStarsHTML + '</div><input type="hidden" id="rptAttScore" value="' + attScore + '"></div><textarea id="rptAttitude" class="report-textarea" rows="3" placeholder="집중력, 자기조절, 메타인지 관찰...">' + (rpt.attitude||"") + '</textarea></div>';
+        content += '<div class="report-sec"><div class="report-sec-title">🎯 이번 달 목표 & 달성</div><textarea id="rptGoal" class="report-textarea" rows="2" placeholder="목표...">' + (rpt.goal||"") + '</textarea><textarea id="rptGoalResult" class="report-textarea" rows="2" style="margin-top:8px" placeholder="달성 결과...">' + (rpt.goalResult||"") + '</textarea></div>';
+        content += '<div class="report-sec"><div class="report-sec-title">🔄 루틴 & 습관</div><textarea id="rptHabit" class="report-textarea" rows="3" placeholder="루틴 준수 현황...">' + (rpt.habitNote||"") + '</textarea></div>';
+        content += '<div class="report-sec"><div class="report-sec-title" style="color:#1B4332;font-size:14px">💬 선생님 코멘트 (학부모 전달)</div><textarea id="rptComment" class="report-textarea" rows="4" style="border-color:#C8E6C9;background:#F0FAF5" placeholder="학부모님께 전달할 메시지...">' + (rpt.teacherComment||"") + '</textarea></div>';
+        content += '<div class="report-sec"><div class="report-sec-title">📅 다음 달 계획</div><textarea id="rptNext" class="report-textarea" rows="3" placeholder="다음 달 목표, 준비 사항...">' + (rpt.nextPlan||"") + '</textarea></div>';
+        content += '<button class="btn bp" style="width:100%" onclick="saveCurrentReport(\'' + stR.id + '\',\'' + mk + '\')">💾 리포트 저장</button>';
+        content += '</div>';
+      }
+
+      // History
+      var reports = (stR.monthlyReports||[]).slice().sort(function(a,b){ return b.monthKey.localeCompare(a.monthKey); });
+      if (reports.length > 0) {
+        content += '<div style="font-size:14px;font-weight:700;margin:20px 0 10px">📂 리포트 히스토리</div>';
+        reports.forEach(function(r) {
+          var dateStr = r.updatedAt ? new Date(r.updatedAt).toLocaleDateString("ko-KR") : "";
+          content += '<div class="hist-item" onclick="currentEditingReport={studentId:\'' + stR.id + '\',monthKey:\'' + r.monthKey + '\'};render()">';
+          content += '<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:14px;font-weight:800;color:#1B4332">' + monthLabel(r.monthKey) + '</div><span style="font-size:11px;color:#9A958C">' + dateStr + '</span></div>';
+          content += '<div style="font-size:12px;color:#7A7267;margin-top:4px">' + (r.teacherComment ? '"' + r.teacherComment.substring(0,60) + '..."' : "리포트 작성됨") + '</div>';
+          content += '</div>';
+        });
+      }
+    }
+  }
+
+  // ── PARENT GUIDE ──
+  else if (s.tab === "parent-guide") {
+    content = `<h2 class="st">학부모 커뮤니케이션</h2><p class="ss">소통 원칙 · 분기별 미팅</p>
+      <div class="card" style="margin-bottom:16px"><div style="font-size:15px;font-weight:700;margin-bottom:14px">🟢 Do's & Don'ts</div>
+        ${PARENT.rules.map((p,i)=>`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;${i<PARENT.rules.length-1?"margin-bottom:12px":""}"><div style="background:#E8F5E9;padding:12px;border-radius:10px"><div style="font-weight:700;font-size:12px;color:#1B4332;margin-bottom:4px">✅ ${p.d}</div><div style="font-size:11px;color:#3A3530">${p.g}</div></div><div style="background:#FFF3E0;padding:12px;border-radius:10px"><div style="font-weight:700;font-size:12px;color:#BF360C;margin-bottom:4px">❌ ${p.x}</div><div style="font-size:11px;color:#3A3530">${p.b}</div></div></div>`).join("")}
+      </div>
+      <div class="card"><div style="font-size:15px;font-weight:700;margin-bottom:14px">📅 분기별 미팅</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">${PARENT.quarters.map((q,i)=>`<div style="padding:14px;border-radius:10px;background:hsl(${148+i*18},28%,${96-i*2}%);border:1px solid hsl(${148+i*18},28%,${88-i*2}%)"><div style="font-weight:800;font-size:14px;color:#1B4332;margin-bottom:6px">${q.q}</div><div style="font-size:12px;color:#3A3530;line-height:1.6">${q.a}</div></div>`).join("")}</div></div>`;
+  }
+
+  // ── ASSEMBLE PAGE ──
+  document.getElementById("app").innerHTML = `
+    <header style="padding:16px 24px;border-bottom:1px solid #DDD8D0;background:rgba(255,255,255,0.85);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:sticky;top:0;z-index:50">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:42px;height:42px;border-radius:11px;background:linear-gradient(135deg,#1B4332,#2D6A4F,#52B788);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(27,67,50,0.3)"><span style="color:white;font-weight:900;font-size:16px;font-family:Playfair Display,serif">LU</span></div>
+        <div><div style="font-family:Playfair Display,serif;font-weight:900;font-size:20px;color:#1B4332">Lit You Up</div><div style="font-size:10px;color:#9A958C;font-weight:600;letter-spacing:1.5px;text-transform:uppercase">Consulting System v3.0</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px"><span style="background:#E8F5E9;color:#1B4332;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700">🎓 교사 모드</span><button onclick="doLogout()" style="padding:6px 12px;border-radius:8px;border:1px solid #E8E4DE;background:white;cursor:pointer;font-size:12px;color:#7A7267;font-family:inherit">로그아웃</button></div>
+    </header>
+    <div style="padding:12px 24px 0"><div class="tb">${tabs.map(t=>`<button class="ti ${s.tab===t.id?"on":""}" onclick="state.tab='${t.id}';state.selectedId=null;render()">${t.l}</button>`).join("")}</div></div>
+    <main style="padding:20px 24px 60px;max-width:1120px;margin:0 auto">${content}</main>
+    <footer style="padding:20px 24px;border-top:1px solid #DDD8D0;text-align:center;font-size:11px;color:#9A958C"><span style="font-family:Playfair Display,serif;font-weight:700;color:#1B4332">Lit You Up</span> · 학생의 지속 가능한 성장을 위한 컨설팅 시스템</footer>
+
+    <!-- Add Student Modal -->
+    <div id="addModal" class="modal-overlay" style="display:none" onclick="this.style.display='none'">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div style="font-size:18px;font-weight:800;margin-bottom:20px;color:#1B4332">새 학생 추가</div>
+        <div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;margin-bottom:4px;color:#7A7267">이름 *</div><input id="newName" placeholder="학생 이름" style="width:100%;padding:10px 12px;border:1.5px solid #E8E4DE;border-radius:8px;font-size:14px;font-family:inherit;outline:none"></div>
+        <div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;margin-bottom:4px;color:#7A7267">학년</div><div style="display:flex;gap:5px;flex-wrap:wrap">${["3","4","5","6","7","8","9","10","11","12"].map(g=>`<button class="gb" id="gBtn${g}" onclick="document.querySelectorAll('[id^=gBtn]').forEach(b=>{b.style.background='white';b.style.color='#1B4332';b.style.borderColor='#E8E4DE'});this.style.background='#1B4332';this.style.color='white';this.style.borderColor='#1B4332';document.getElementById('newGrade').value='${g}'" style="padding:7px 10px;border-radius:10px;border:2px solid;cursor:pointer;font-weight:800;font-size:12px;font-family:inherit;background:${g==="9"?"#1B4332":"white"};color:${g==="9"?"white":"#1B4332"};border-color:${g==="9"?"#1B4332":"#E8E4DE"}">${g}</button>`).join("")}<input type="hidden" id="newGrade" value="9"></div></div><div style="margin-bottom:20px"><div style="font-size:12px;font-weight:600;margin-bottom:4px;color:#7A7267">학부모 PIN (영문1+숫자5) *</div><input id="newPin" placeholder="A12345" maxlength="6" style="width:100%;padding:10px 12px;border:1.5px solid #E8E4DE;border-radius:8px;font-size:16px;font-weight:700;letter-spacing:4px;outline:none;text-transform:uppercase;font-family:inherit" oninput="this.value=this.value.toUpperCase()"><div style="font-size:11px;color:#9A958C;margin-top:4px">영문 1자리 + 숫자 5자리</div></div>
+        <div style="margin-bottom:20px"><div style="font-size:12px;font-weight:600;margin-bottom:4px;color:#7A7267">학교</div><input id="newSchool" placeholder="학교 이름" style="width:100%;padding:10px 12px;border:1.5px solid #E8E4DE;border-radius:8px;font-size:14px;font-family:inherit;outline:none"></div>
+        <div style="display:flex;gap:10px">
+          <button class="btn" style="flex:1;border:1.5px solid #E8E4DE;background:white" onclick="document.getElementById('addModal').style.display='none'">취소</button>
+          <button class="btn bp" style="flex:1" onclick="var n=document.getElementById('newName').value;var p=(document.getElementById('newPin')||{value:''}).value.toUpperCase();if(!n.trim()){alert('이름을 입력하세요');return;}if(p&&!/^[A-Z][0-9]{5}$/.test(p)){alert('PIN 형식 오류: 영문1+숫자5');return;}addStudent(n,document.getElementById('newGrade').value,document.getElementById('newSchool').value,p);document.getElementById('addModal').style.display='none';document.getElementById('newName').value='';var ns=document.getElementById('newSchool');if(ns)ns.value='';var np=document.getElementById('newPin');if(np)np.value='';">추가</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ═══ PWA Service Worker Registration ═══
+
+function renderLoginScreen() {
+  var isTeacher = pinState.role === "teacher";
+  var app = document.getElementById("app");
+  app.innerHTML = "";
+  var screen = document.createElement("div");
+  screen.className = "pin-screen";
+  var box = document.createElement("div");
+  box.className = "pin-box";
+  box.innerHTML = '<div class="pin-logo-box"><span>LU</span></div><div class="pin-ttl">Lit You Up</div><div class="pin-sub2">Consulting System v4.0</div>';
+  var grid = document.createElement("div");
+  grid.className = "role-grid";
+  var roles = [{r:"teacher",icon:"🎓",lbl:"교사",sub:"마커스쌤"},{r:"parent",icon:"👨‍👩‍👧",lbl:"학부모",sub:"자녀 선택 후 PIN"}];
+  roles.forEach(function(o) {
+    var card = document.createElement("div");
+    card.className = "role-card" + (pinState.role===o.r?" sel":"");
+    card.innerHTML = '<div class="role-icon">'+o.icon+'</div><div class="role-lbl">'+o.lbl+'</div><div class="role-slb">'+o.sub+'</div>';
+    (function(r){ card.onclick = function(){ pinState.role=r; pinState.pinError=""; render(); }; })(o.r);
+    grid.appendChild(card);
+  });
+  box.appendChild(grid);
+  var content = document.createElement("div");
+  if (isTeacher) {
+    var lbl = document.createElement("div"); lbl.style.cssText="text-align:left;margin-bottom:8px;font-size:12px;font-weight:600;color:#7A7267"; lbl.textContent="교사 PIN (영문1 + 숫자5)"; content.appendChild(lbl);
+    var inp = document.createElement("input"); inp.className="pin-inp"; inp.id="teacherPinInp"; inp.type="password"; inp.maxLength=6; inp.placeholder="••••••"; inp.autocomplete="off"; inp.oninput=function(){ this.value=this.value.toUpperCase(); }; inp.onkeydown=function(e){ if(e.key==="Enter") doLoginTeacher(); }; content.appendChild(inp);
+    var err = document.createElement("div"); err.className="pin-err2"; err.id="pinErrMsg"; err.textContent=pinState.pinError||""; content.appendChild(err);
+    var btn = document.createElement("button"); btn.className="pin-submit"; btn.textContent="🎓 교사로 로그인"; btn.onclick=doLoginTeacher; content.appendChild(btn);
+  } else {
+    var lbl2 = document.createElement("div"); lbl2.style.cssText="text-align:left;margin-bottom:10px;font-size:13px;font-weight:700;color:#1B4332"; lbl2.textContent="자녀를 선택하세요"; content.appendChild(lbl2);
+    state.students.forEach(function(st) {
+      var item = document.createElement("div"); item.className="st-select"+(pinState.parentStudentId===st.id?" sel":"");
+      item.innerHTML='<div class="st-avatar">'+st.name.charAt(0)+'</div><div><div style="font-weight:700;font-size:14px">'+st.name+'</div><div style="font-size:11px;color:#9A958C">'+st.school+" · "+st.grade+"학년</div></div>";
+      (function(id){ item.onclick=function(){ doSelectParentStudent(id); }; })(st.id);
+      content.appendChild(item);
+    });
+    if (pinState.parentStudentId) {
+      var lbl3=document.createElement("div"); lbl3.style.cssText="margin-top:14px;text-align:left;margin-bottom:8px;font-size:12px;font-weight:600;color:#7A7267"; lbl3.textContent="PIN 입력 (영문1 + 숫자5)"; content.appendChild(lbl3);
+      var inp2=document.createElement("input"); inp2.className="pin-inp"; inp2.id="parentPinInp"; inp2.type="password"; inp2.maxLength=6; inp2.placeholder="••••••"; inp2.autocomplete="off"; inp2.oninput=function(){ this.value=this.value.toUpperCase(); }; inp2.onkeydown=function(e){ if(e.key==="Enter") doLoginParent(); }; content.appendChild(inp2);
+      var err2=document.createElement("div"); err2.className="pin-err2"; err2.id="pinErrMsg"; err2.textContent=pinState.pinError||""; content.appendChild(err2);
+      var btn2=document.createElement("button"); btn2.className="pin-submit"; btn2.style.background="#E65100"; btn2.textContent="👨‍👩‍👧 입장하기"; btn2.onclick=doLoginParent; content.appendChild(btn2);
+    } else {
+      var err3=document.createElement("div"); err3.className="pin-err2"; err3.id="pinErrMsg"; err3.textContent=pinState.pinError||""; content.appendChild(err3);
+    }
+  }
+  box.appendChild(content);
+  screen.appendChild(box);
+  app.appendChild(screen);
+}
+function renderParentView() {
+  var student = state.students.find(function(s){ return s.id===pinState.parentStudentId; });
+  if (!student) { doLogout(); return; }
+  var reports = (student.monthlyReports||[]).slice().sort(function(a,b){ return b.monthKey.localeCompare(a.monthKey); });
+
+  var reportsHTML = reports.length === 0
+    ? '<div style="text-align:center;padding:60px 20px;color:#9A958C"><div style="font-size:40px;margin-bottom:12px">📋</div><div style="font-weight:600">아직 작성된 리포트가 없어요</div></div>'
+    : reports.map(function(r) {
+        var scoreCards = [
+          {l:"GPA",v:r.gpa||"-",bg:"#E8F5E9",c:"#1B4332"},
+          {l:"루틴 달성률",v:(r.routineRate||"-")+"%",bg:"#FFF8E1",c:"#E65100"},
+          {l:"학습 태도",v:r.attitudeScore?("⭐".repeat(parseInt(r.attitudeScore))):"-",bg:"#F3E8FF",c:"#6A1B9A"}
+        ].map(function(x){ return '<div style="background:'+x.bg+';padding:12px;border-radius:10px;text-align:center"><div style="font-size:10px;color:#7A7267">'+x.l+'</div><div style="font-size:16px;font-weight:900;color:'+x.c+';margin-top:4px">'+x.v+'</div></div>'; }).join("");
+        var dateStr = r.updatedAt ? new Date(r.updatedAt).toLocaleDateString("ko-KR") : "";
+        return '<div class="parent-view-card">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #F0EDE8">' +
+          '<span style="background:#1B4332;color:white;padding:4px 12px;border-radius:16px;font-size:12px;font-weight:800">' + monthLabel(r.monthKey) + '</span>' +
+          '<span style="font-size:11px;color:#9A958C">' + dateStr + '</span></div>' +
+          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">' + scoreCards + '</div>' +
+          (r.academicProgress ? '<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:#9A958C;margin-bottom:5px">📚 학습 진도</div><div style="font-size:13px;color:#3A3530;line-height:1.7">'+r.academicProgress+'</div></div>' : "") +
+          (r.goal ? '<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:#9A958C;margin-bottom:5px">🎯 이번 달 목표</div><div style="font-size:13px;color:#3A3530;line-height:1.7">'+r.goal+'</div>'+(r.goalResult?'<div style="margin-top:6px;padding:6px 10px;background:#F0FAF5;border-radius:8px;font-size:12px;color:#2D6A4F;font-weight:600">달성: '+r.goalResult+'</div>':"")+'</div>' : "") +
+          (r.teacherComment ? '<div class="parent-comment"><div style="font-size:10px;font-weight:800;color:#1B4332;margin-bottom:6px">💬 선생님 코멘트</div><div style="font-size:13px;color:#2D6A4F;line-height:1.7;font-style:italic">'+r.teacherComment+'</div></div>' : "") +
+          (r.nextPlan ? '<div class="parent-next"><div style="font-size:10px;font-weight:800;color:#E65100;margin-bottom:6px">📅 다음 달 계획</div><div style="font-size:13px;color:#5A5550;line-height:1.7">'+r.nextPlan+'</div></div>' : "") +
+          '</div>';
+      }).join("");
+
+  document.getElementById("app").innerHTML =
+    '<div style="padding:14px 24px;border-bottom:1px solid #DDD8D0;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:sticky;top:0;z-index:50">' +
+    '<div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#1B4332,#52B788);display:flex;align-items:center;justify-content:center"><span style="color:white;font-weight:900;font-size:15px;font-family:Playfair Display,serif">LU</span></div><div><div style="font-family:Playfair Display,serif;font-weight:900;font-size:18px;color:#1B4332">Lit You Up</div><div style="font-size:10px;color:#9A958C">학부모 리포트 열람</div></div></div>' +
+    '<div style="display:flex;align-items:center;gap:10px"><span style="background:#FFF3E0;color:#BF360C;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700">👨‍👩‍👧 ' + student.name + ' 학부모</span><button onclick="doLogout()" style="padding:6px 12px;border-radius:8px;border:1px solid #E8E4DE;background:white;cursor:pointer;font-size:12px;color:#7A7267;font-family:inherit">로그아웃</button></div></div>' +
+    '<div style="padding:24px;max-width:900px;margin:0 auto">' +
+    '<div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding:18px;background:white;border-radius:14px;border:1px solid #E8E4DE">' +
+    '<div style="width:48px;height:48px;border-radius:50%;background:#E8F5E9;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;color:#1B4332;flex-shrink:0">' + student.name.charAt(0) + '</div>' +
+    '<div><div style="font-weight:800;font-size:18px">' + student.name + '</div><div style="font-size:12px;color:#9A958C">' + student.school + ' · ' + student.grade + '학년</div>' +
+    (student.narrative ? '<div style="font-size:12px;color:#2D6A4F;font-style:italic;margin-top:3px">"' + student.narrative + '"</div>' : "") +
+    '</div></div>' + reportsHTML + '</div>';
+}
+
+if ('serviceWorker' in navigator) {
+  // Minimal inline service worker for PWA install capability
+  const swCode = `self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => caches.match(e.request))));`;
+  const swBlob = new Blob([swCode], { type: 'application/javascript' });
+  const swUrl = URL.createObjectURL(swBlob);
+  navigator.serviceWorker.register(swUrl).catch(() => {});
+}
+
+// ═══ INIT ═══
+loadData();
+</script>
+</body>
+</html>

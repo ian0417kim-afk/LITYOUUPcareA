@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Lit You Up</title>
+<meta name="theme-color" content="#1B4332">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lit You Up">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCq0l2RDh6LYUWgSG0pUWw8uBvsq5GNFVQ",
+  authDomain: "marcus-coaching.firebaseapp.com",
+  projectId: "marcus-coaching",
+  storageBucket: "marcus-coaching.firebasestorage.app",
+  messagingSenderId: "611003877918",
+  appId: "1:611003877918:web:8f9b6ab9c07d369d55bc0f"
+};
+
+var db = null, firebaseReady = false;
+try {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  firebaseReady = true;
+} catch(e) { console.warn('Firebase init failed', e); }
+</script>
+<style>
+
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Pretendard',-apple-system,sans-serif;color:#1B1815;background:#F7F5F0;min-height:100vh;}
+.btn{padding:10px 18px;border-radius:10px;border:none;cursor:pointer;font-weight:700;font-size:13px;transition:all .15s;font-family:inherit;}
+.btn:active{transform:scale(.97);}
+.bp{background:#1B4332;color:#F0FFF4;}.bp:hover{background:#0D3321;}
+.bo{background:transparent;border:1.5px solid #2D6A4F;color:#2D6A4F;}.bo:hover{background:#2D6A4F;color:white;}
+.bk{background:#FEE500;color:#1A1200;font-weight:800;}.bk:hover{filter:brightness(.93);}
+.bs{background:#F0F0F0;color:#333;font-weight:700;}.bs:hover{background:#E0E0E0;}
+.card{background:white;border-radius:14px;border:1px solid #E8E4DE;padding:20px;}
+.card.click{cursor:pointer;transition:all .2s;}.card.click:hover{box-shadow:0 6px 24px rgba(0,0,0,.08);transform:translateY(-2px);}
+.tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+.tb{display:flex;gap:2px;padding:3px;background:#E8E4DE;border-radius:12px;overflow-x:auto;scrollbar-width:none;}
+.tb::-webkit-scrollbar{display:none;}
+.ti{padding:8px 15px;border-radius:9px;border:none;background:transparent;cursor:pointer;font-weight:600;font-size:13px;color:#7A7267;transition:all .15s;white-space:nowrap;font-family:inherit;}
+.ti.on{background:white;color:#1B1815;box-shadow:0 1px 4px rgba(0,0,0,.07);}
+.st{font-size:22px;font-weight:900;letter-spacing:-.5px;}
+.ss{font-size:12px;color:#7A7267;margin:3px 0 18px;}
+.stb{padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:12px;font-family:inherit;transition:all .15s;}
+.stb.on{background:#1B4332;color:#E8F5E9;}.stb:not(.on){background:#EDE9E3;color:#5A5550;}
+.del-btn{width:22px;height:22px;border-radius:6px;border:none;background:#FFF0F0;color:#C62828;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.editable{cursor:pointer;border-bottom:1px dashed #C8E6C9;transition:background .15s;}
+.editable:hover{background:#F0FAF5;border-radius:4px;}
+.edit-input{width:100%;border:2px solid #2D6A4F;border-radius:6px;padding:4px 8px;font-family:inherit;outline:none;background:#F0FAF5;}
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal{background:white;border-radius:18px;padding:28px;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(0,0,0,.18);max-height:90vh;overflow-y:auto;}
+.save-ind{position:fixed;bottom:20px;right:20px;background:#1B4332;color:white;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;z-index:100;opacity:0;transition:opacity .3s;pointer-events:none;}
+.save-ind.show{opacity:1;}
+.hdr{padding:14px 24px;border-bottom:1px solid #DDD8D0;background:rgba(255,255,255,.9);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:sticky;top:0;z-index:50;}
+.hdr-icon{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#1B4332,#52B788);display:flex;align-items:center;justify-content:center;}
+.hdr-icon span{color:white;font-weight:900;font-size:15px;font-family:Georgia,serif;}
+.nav-wrap{padding:10px 24px 0;border-bottom:1px solid #E8E4DE;background:white;}
+.main{padding:24px;max-width:1140px;margin:0 auto;padding-bottom:60px;}
+.inp{width:100%;padding:10px 12px;border:1.5px solid #E8E4DE;border-radius:10px;font-size:13px;outline:none;font-family:inherit;transition:border-color .2s;}
+.inp:focus{border-color:#2D6A4F;}
+.ta{width:100%;padding:10px 12px;border:1.5px solid #E8E4DE;border-radius:10px;font-size:13px;line-height:1.6;resize:vertical;outline:none;font-family:inherit;transition:border-color .2s;background:#FAFAF8;}
+.ta:focus{border-color:#2D6A4F;background:white;}
+.lbl{font-size:12px;font-weight:600;color:#7A7267;margin-bottom:5px;display:block;}
+.fg{margin-bottom:14px;}.fg:last-child{margin-bottom:0;}
+.rpt-card{background:white;border-radius:14px;border:1px solid #E8E4DE;padding:22px;margin-bottom:14px;}
+.rpt-pill{display:inline-flex;align-items:center;gap:6px;background:#1B4332;color:white;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:800;margin-bottom:0;}
+.rpt-sec{margin-bottom:18px;}
+.rpt-sec-ttl{font-size:13px;font-weight:700;color:#7A7267;margin-bottom:8px;}
+.hist-item{background:white;border-radius:12px;border:1px solid #E8E4DE;padding:14px 16px;margin-bottom:8px;cursor:pointer;transition:all .15s;}
+.hist-item:hover{box-shadow:0 4px 16px rgba(0,0,0,.06);}
+.parent-card{background:white;border-radius:14px;border:1px solid #E8E4DE;padding:22px;margin-bottom:14px;}
+.parent-pill{background:#1B4332;color:white;padding:4px 12px;border-radius:16px;font-size:12px;font-weight:800;}
+.p-comment{background:#F0FAF5;border:1px solid #C8E6C9;border-radius:12px;padding:14px;margin-top:10px;}
+.p-next{background:#FFF8E1;border:1px solid #FFE082;border-radius:12px;padding:14px;margin-top:10px;}
+.share-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.pin-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#0D2B1E,#1B4332,#2D6A4F);padding:20px;}
+.pin-box{background:white;border-radius:24px;padding:36px 32px;width:100%;max-width:380px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.3);}
+.pin-logo{width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#1B4332,#52B788);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+.pin-logo span{color:white;font-weight:900;font-size:22px;font-family:Georgia,serif;}
+.pin-title{font-family:Georgia,serif;font-size:22px;font-weight:900;color:#1B4332;margin-bottom:4px;}
+.pin-sub{font-size:13px;color:#9A958C;margin-bottom:24px;}
+.pin-inp{width:100%;padding:14px 16px;border:2px solid #E8E4DE;border-radius:12px;font-size:20px;font-weight:700;text-align:center;letter-spacing:6px;outline:none;transition:border-color .2s;color:#1B4332;font-family:inherit;}
+.pin-inp:focus{border-color:#2D6A4F;}
+.pin-inp.error{border-color:#C62828;}
+.pin-btn{width:100%;padding:14px;border-radius:12px;border:none;background:#1B4332;color:white;font-size:15px;font-weight:700;cursor:pointer;margin-top:12px;font-family:inherit;}
+.pin-err{color:#C62828;font-size:12px;margin-top:8px;min-height:18px;}
+.role-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px;}
+.role-card{padding:14px 10px;border-radius:12px;border:2px solid #E8E4DE;background:white;cursor:pointer;font-family:inherit;transition:all .15s;text-align:center;}
+.role-card.sel{border-color:#1B4332;background:#F0FAF5;}
+.st-item{padding:12px 16px;border-radius:12px;border:2px solid #E8E4DE;background:white;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;gap:12px;transition:all .15s;}
+.st-item.sel{border-color:#1B4332;background:#F0FAF5;}
+.st-avatar{width:36px;height:36px;border-radius:50%;background:#E8F5E9;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#1B4332;flex-shrink:0;}
+.star-row{display:flex;gap:4px;}
+.star{font-size:22px;cursor:pointer;}
+input,textarea,select{font-family:inherit;}
+
+</style>
+</head>
+<body>
+<div id="app"><div style="min-height:100vh;display:flex;align-items:center;justify-content:center"><div style="text-align:center;color:#7A7267;font-size:16px;font-weight:600">🔄 로딩 중...</div></div></div>
+<div id="saveInd" class="save-ind">✓ 저장됨</div>
+<script>
+
+var TEACHER_PIN = "M12345";
+var GRADES = ["1","2","3","4","5","6","7","8","9","10","11","12"];
+var DEFAULT_ROADMAP = {
+  "1":{title:"Discovery I",sub:"기초 탐색의 해",content:"읽기/쓰기 기초 강화\n수 개념 심화\n탐구 질문 습관"},
+  "2":{title:"Discovery II",sub:"기초 완성의 해",content:"독해력 강화\n수학 연산 시작\n표현력 키우기"},
+  "3":{title:"Foundation I",sub:"기반을 심는 해",content:"과목별 기초 완성\n독서 습관 정착\n탐구 프로젝트 시작"},
+  "4":{title:"Foundation II",sub:"기반을 다지는 해",content:"수학 연산 완성\n독해력 강화\n글쓰기 기초"},
+  "5":{title:"Growth I",sub:"성장의 시작",content:"과목별 흥미 발견\n프로젝트 학습\n발표력 강화"},
+  "6":{title:"Growth II",sub:"성장의 가속도",content:"중학교 준비\n영어 집중\n수학 심화"},
+  "7":{title:"Acceleration",sub:"속도를 내는 해",content:"핵심 과목 기반\n영어 독해 강화\n수학 개념 완성"},
+  "8":{title:"Focus I",sub:"집중력을 키우는 해",content:"고교 준비 시작\n내신 관리\nSAT 기초"},
+  "9":{title:"Foundation III",sub:"기반 구축의 해",content:"GPA 관리 시스템\nHonors 수강 시작\n에세이 역량\n봉사 시작"},
+  "10":{title:"Exploration",sub:"깊이를 만드는 해",content:"AP/IB 본격 수강\nSAT/ACT 준비\nResearch 탐색\n개인 프로젝트"},
+  "11":{title:"Convergence",sub:"수렴과 집중의 해",content:"AP/IB 최고점 도전\nSAT/ACT 완성\n리더십 수행\n추천서 전략"},
+  "12":{title:"Expression",sub:"표현과 완성의 해",content:"GPA 유지\nMid-Year Report\n에세이 완성\nEA/ED 전략"}
+};
+
+var state = {
+  mode:"login", role:"teacher", parentStudentId:null, pinError:"",
+  tab:"dashboard", selectedId:null, detailTab:"overview",
+  students:[], loaded:false, editingReport:null,
+  roadmap:JSON.parse(JSON.stringify(DEFAULT_ROADMAP)), roadmapGrade:"9",
+  parentTab:"reports", appsScriptUrl:"", teacherEmail:"ginnie1004@gmail.com"
+};
+var saveTimer = null;
+
+function showSaved(){var el=document.getElementById("saveInd");if(!el)return;el.classList.add("show");setTimeout(function(){el.classList.remove("show");},1800);}
+function normalizePin(p){return(p||"").trim().toUpperCase();}
+function checkTeacherPin(p){return normalizePin(p)===normalizePin(TEACHER_PIN);}
+function checkStudentPin(st,p){return normalizePin(p)===normalizePin(st.pin||"");}
+function validatePin(p){return /^[A-Z][0-9]{5}$/.test(normalizePin(p));}
+function monthKey(y,m){return y+"-"+String(m).padStart(2,"0");}
+function monthLabel(mk){var p=mk.split("-");return p[0]+"년 "+parseInt(p[1])+"월";}
+function currentMonthKey(){var n=new Date();return monthKey(n.getFullYear(),n.getMonth()+1);}
+function getMonths(){
+  var months=[],y=2026,m=3,n=new Date(),ny=n.getFullYear(),nm=n.getMonth()+1;
+  while(y<ny||(y===ny&&m<=nm)){months.push(monthKey(y,m));m++;if(m>12){m=1;y++;}}
+  months.reverse(); return months;
+}
+function getStudent(){return state.students.find(function(s){return s.id===state.selectedId;});}
+function getStudentById(id){return state.students.find(function(s){return s.id===id;});}
+function getReport(studentId,mk){
+  var s=getStudentById(studentId);
+  if(!s||!s.reports)return null;
+  return s.reports.find(function(r){return r.monthKey===mk;})||null;
+}
+
+var DS={
+  save:async function(col,id,data){
+    try{if(firebaseReady)await db.collection(col).doc(id).set(data,{merge:true});}catch(e){}
+    localStorage.setItem("lyu_"+col+"_"+id,JSON.stringify(Object.assign({},data,{_id:id})));
+  },
+  load:async function(col,id){
+    try{if(firebaseReady){var doc=await db.collection(col).doc(id).get();if(doc.exists)return doc.data();}}catch(e){}
+    var l=localStorage.getItem("lyu_"+col+"_"+id);return l?JSON.parse(l):null;
+  },
+  remove:async function(col,id){
+    try{if(firebaseReady)await db.collection(col).doc(id).delete();}catch(e){}
+    localStorage.removeItem("lyu_"+col+"_"+id);
+  }
+};
+
+function autoSave(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async function(){
+    await DS.save("meta","student_ids",{ids:state.students.map(function(s){return s.id;})});
+    for(var i=0;i<state.students.length;i++){await DS.save("students",state.students[i].id,state.students[i]);}
+    await DS.save("config","roadmap",state.roadmap);
+    await DS.save("config","settings",{appsScriptUrl:state.appsScriptUrl,teacherEmail:state.teacherEmail});
+    showSaved();
+  },800);
+}
+
+async function loadData(){
+  var meta=await DS.load("meta","student_ids");
+  if(meta&&meta.ids&&meta.ids.length){
+    var arr=[];
+    for(var i=0;i<meta.ids.length;i++){var s=await DS.load("students",meta.ids[i]);if(s)arr.push(s);}
+    state.students=arr.length?arr:getDefaultStudents();
+  }else{state.students=getDefaultStudents();}
+  var rm=await DS.load("config","roadmap");if(rm)state.roadmap=rm;
+  var cfg=await DS.load("config","settings");
+  if(cfg){state.appsScriptUrl=cfg.appsScriptUrl||"";state.teacherEmail=cfg.teacherEmail||"ginnie1004@gmail.com";}
+  state.loaded=true; render();
+}
+
+function getDefaultStudents(){
+  return [
+    {id:"s1",name:"김서윤",grade:"10",school:"서울국제학교 (SIS)",pin:"A11111",phone:"",kakaoLink:"",
+     interests:"환경과학, 데이터분석",gpa:"3.85",narrative:"환경 문제를 데이터로 해결하고 싶은 학생",
+     routineRate:82,notes:"AP Environmental Science 프로젝트 마감 임박.",
+     courses:[{name:"AP Environmental Science",type:"AP",grade:"A-"},{name:"English 10 Honors",type:"Honors",grade:"A"}],
+     activities:["환경동아리 부회장"],narrativeTimeline:[],reports:[]},
+    {id:"s2",name:"이준혁",grade:"11",school:"용산국제학교 (YISS)",pin:"B22222",phone:"",kakaoLink:"",
+     interests:"컴퓨터공학, 로보틱스",gpa:"3.92",narrative:"기술로 교육 격차를 줄이고 싶은 엔지니어",
+     routineRate:91,notes:"SAT 1차 1520. 목표 1550+.",
+     courses:[{name:"AP Computer Science A",type:"AP",grade:"A+"},{name:"AP Calculus BC",type:"AP",grade:"A"}],
+     activities:["로보틱스팀 캡틴"],narrativeTimeline:[],reports:[]}
+  ];
+}
+
+function updateStudent(id,changes){
+  state.students=state.students.map(function(s){return s.id===id?Object.assign({},s,changes):s;});
+  autoSave(); render();
+}
+
+function saveReport(studentId,mk,data){
+  state.students=state.students.map(function(s){
+    if(s.id!==studentId)return s;
+    var reports=(s.reports||[]).slice();
+    var idx=reports.findIndex(function(r){return r.monthKey===mk;});
+    var report=Object.assign({monthKey:mk},data,{updatedAt:new Date().toISOString()});
+    if(idx>=0)reports[idx]=report;else reports.unshift(report);
+    return Object.assign({},s,{reports:reports});
+  });
+  autoSave();
+}
+
+function fmtReport(st,r){
+  var lines=["📋 Lit You Up — "+st.name+" 리포트",monthLabel(r.monthKey),"━".repeat(20)];
+  if(r.gpa)lines.push("📊 GPA: "+r.gpa);
+  if(r.routineRate)lines.push("🔄 루틴 달성률: "+r.routineRate+"%");
+  if(r.academicProgress)lines.push("\n📚 학습 진도:\n"+r.academicProgress);
+  if(r.goal)lines.push("\n🎯 목표:\n"+r.goal);
+  if(r.goalResult)lines.push("달성 결과: "+r.goalResult);
+  if(r.teacherComment)lines.push("\n💬 선생님 코멘트:\n"+r.teacherComment);
+  if(r.nextPlan)lines.push("\n📅 다음 달 계획:\n"+r.nextPlan);
+  return lines.join("\n");
+}
+
+window.shareKakao=function(studentId,mk){
+  var st=getStudentById(studentId),r=getReport(studentId,mk);
+  if(!st||!r){alert("리포트를 먼저 저장해주세요.");return;}
+  if(!st.kakaoLink){alert("학생 정보에 카카오 오픈채팅 링크를 먼저 입력해주세요.");return;}
+  var txt=fmtReport(st,r);
+  var copy=function(){var ta=document.createElement("textarea");ta.value=txt;ta.style.cssText="position:fixed;opacity:0;";document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand("copy");}catch(e){}document.body.removeChild(ta);};
+  navigator.clipboard.writeText(txt).then(function(){alert("내용이 복사됐어요! 채팅창에 붙여넣기 해주세요.");window.open(st.kakaoLink,"_blank");}).catch(function(){copy();alert("내용이 복사됐어요! 채팅창에 붙여넣기 해주세요.");window.open(st.kakaoLink,"_blank");});
+};
+
+window.shareSMS=function(studentId,mk){
+  var st=getStudentById(studentId),r=getReport(studentId,mk);
+  if(!st||!r){alert("리포트를 먼저 저장해주세요.");return;}
+  if(!st.phone){alert("학생 정보에 학부모 전화번호를 먼저 입력해주세요.");return;}
+  window.location.href="sms:"+st.phone+"?body="+encodeURIComponent(fmtReport(st,r));
+};
+
+function ringSVG(pct,size,sw){
+  size=size||60;sw=sw||4;
+  var r=(size-sw)/2,c=2*Math.PI*r;
+  return '<svg width="'+size+'" height="'+size+'" style="transform:rotate(-90deg)"><circle cx="'+(size/2)+'" cy="'+(size/2)+'" r="'+r+'" fill="none" stroke="#E8E4DE" stroke-width="'+sw+'"/><circle cx="'+(size/2)+'" cy="'+(size/2)+'" r="'+r+'" fill="none" stroke="#2D6A4F" stroke-width="'+sw+'" stroke-dasharray="'+c+'" stroke-dashoffset="'+(c-(pct/100)*c)+'" stroke-linecap="round"/><text x="'+(size/2)+'" y="'+(size/2)+'" text-anchor="middle" dominant-baseline="central" style="transform:rotate(90deg);transform-origin:center;font-size:'+Math.round(size*0.22)+'px;font-weight:800;fill:#1B1815">'+pct+'%</text></svg>';
+}
+
+function courseTag(type){
+  var m={AP:{bg:"#FFF0F0",c:"#C62828"},Honors:{bg:"#E3F2FD",c:"#1565C0"},Regular:{bg:"#F0FAF5",c:"#2D6A4F"},IB:{bg:"#F3E8FF",c:"#6A1B9A"}};
+  var t=m[type]||m.Regular;
+  return '<span style="font-size:9px;font-weight:800;color:'+t.c+';background:'+t.bg+';padding:2px 7px;border-radius:10px">'+type+'</span>';
+}
+
+window.showAddModal=function(){var m=document.getElementById("addModal");if(m)m.style.display="flex";};
+window.hideAddModal=function(){var m=document.getElementById("addModal");if(m)m.style.display="none";};
+
+// efn: editable field using DOM to avoid quote issues
+function efn(value,onSave,style,placeholder,multi){
+  style=style||"";placeholder=placeholder||"입력하세요";multi=multi||false;
+  var id="ef_"+Math.random().toString(36).substr(2,8);
+  var el=document.createElement("span");
+  el.className="editable"; el.id=id; el.style.cssText=style;
+  el.setAttribute("data-value",value||"");
+  el.setAttribute("data-onsave",onSave);
+  el.setAttribute("data-multi",multi?"true":"false");
+  el.title="클릭하여 수정";
+  el.innerHTML=value||('<span style="color:#B0A99F;font-style:italic">'+placeholder+"</span>");
+  el.onclick=function(){startEdit(id);};
+  return el.outerHTML;
+}
+
+window.startEdit=function(id){
+  var el=document.getElementById(id);
+  if(!el||el.querySelector("input,textarea"))return;
+  var val=el.getAttribute("data-value")||"";
+  var onSave=el.getAttribute("data-onsave");
+  var multi=el.getAttribute("data-multi")==="true";
+  el.innerHTML=multi?('<textarea class="edit-input" rows="3">'+val+"</textarea>"):('<input class="edit-input" value="">');
+  var inp=el.querySelector("input,textarea");
+  if(!multi&&inp.tagName==="INPUT")inp.value=val;
+  inp.focus();
+  inp.onblur=function(){eval(onSave.replace("__VAL__",JSON.stringify(inp.value)));};
+  inp.onkeydown=function(e){if(e.key==="Enter"&&!multi)eval(onSave.replace("__VAL__",JSON.stringify(inp.value)));if(e.key==="Escape")render();};
+};
+
+// ═══ RENDER ═══
+function render(){
+  if(!state.loaded){
+    document.getElementById("app").innerHTML='<div style="min-height:100vh;display:flex;align-items:center;justify-content:center"><div style="text-align:center;color:#7A7267;font-size:16px;font-weight:600">🔄 로딩 중...</div></div>';
+    return;
+  }
+  if(state.mode==="login"){renderLogin();return;}
+  if(state.mode==="parent"){renderParent();return;}
+  renderTeacher();
+}
+
+// ═══ LOGIN ═══
+function renderLogin(){
+  var app=document.getElementById("app");
+  app.innerHTML="";
+  var screen=document.createElement("div");screen.className="pin-screen";
+  var box=document.createElement("div");box.className="pin-box";
+  box.innerHTML='<div class="pin-logo"><span>LU</span></div><div class="pin-title">Lit You Up</div><div class="pin-sub">Consulting System v4.0</div>';
+
+  var grid=document.createElement("div");grid.className="role-grid";
+  [{r:"teacher",icon:"🎓",lbl:"교사",sub:"마커스쌤"},{r:"parent",icon:"👨‍👩‍👧",lbl:"학부모",sub:"자녀 선택 후 PIN"}].forEach(function(o){
+    var card=document.createElement("div");card.className="role-card"+(state.role===o.r?" sel":"");
+    card.innerHTML='<div style="font-size:24px;margin-bottom:6px">'+o.icon+'</div><div style="font-size:13px;font-weight:700;color:#1B4332">'+o.lbl+'</div><div style="font-size:11px;color:#9A958C;margin-top:2px">'+o.sub+'</div>';
+    (function(r){card.onclick=function(){state.role=r;state.pinError="";render();};}) (o.r);
+    grid.appendChild(card);
+  });
+  box.appendChild(grid);
+
+  var content=document.createElement("div");
+  if(state.role==="teacher"){
+    var lbl=document.createElement("div");lbl.style.cssText="text-align:left;margin-bottom:8px;font-size:12px;font-weight:600;color:#7A7267";lbl.textContent="교사 PIN (영문1 + 숫자5)";content.appendChild(lbl);
+    var inp=document.createElement("input");inp.className="pin-inp";inp.id="tPin";inp.type="password";inp.maxLength=6;inp.placeholder="••••••";inp.autocomplete="off";inp.oninput=function(){this.value=this.value.toUpperCase();};inp.onkeydown=function(e){if(e.key==="Enter")doTeacherLogin();};content.appendChild(inp);
+    var err=document.createElement("div");err.className="pin-err";err.id="pinErr";err.textContent=state.pinError||"";content.appendChild(err);
+    var btn=document.createElement("button");btn.className="pin-btn";btn.textContent="🎓 교사로 로그인";btn.onclick=doTeacherLogin;content.appendChild(btn);
+  } else {
+    var lbl2=document.createElement("div");lbl2.style.cssText="text-align:left;margin-bottom:10px;font-size:13px;font-weight:700;color:#1B4332";lbl2.textContent="자녀를 선택하세요";content.appendChild(lbl2);
+    state.students.forEach(function(st){
+      var item=document.createElement("div");item.className="st-item"+(state.parentStudentId===st.id?" sel":"");
+      item.innerHTML='<div class="st-avatar">'+st.name.charAt(0)+'</div><div><div style="font-weight:700;font-size:14px">'+st.name+'</div><div style="font-size:11px;color:#9A958C">'+st.school+" · "+st.grade+"학년</div></div>";
+      (function(id){item.onclick=function(){state.parentStudentId=id;state.pinError="";render();};}) (st.id);
+      content.appendChild(item);
+    });
+    if(state.parentStudentId){
+      var lbl3=document.createElement("div");lbl3.style.cssText="margin-top:14px;text-align:left;margin-bottom:8px;font-size:12px;font-weight:600;color:#7A7267";lbl3.textContent="PIN 입력 (영문1 + 숫자5)";content.appendChild(lbl3);
+      var inp2=document.createElement("input");inp2.className="pin-inp";inp2.id="pPin";inp2.type="password";inp2.maxLength=6;inp2.placeholder="••••••";inp2.autocomplete="off";inp2.oninput=function(){this.value=this.value.toUpperCase();};inp2.onkeydown=function(e){if(e.key==="Enter")doParentLogin();};content.appendChild(inp2);
+      var err2=document.createElement("div");err2.className="pin-err";err2.id="pinErr";err2.textContent=state.pinError||"";content.appendChild(err2);
+      var btn2=document.createElement("button");btn2.className="pin-btn";btn2.style.background="#E65100";btn2.textContent="👨‍👩‍👧 입장하기";btn2.onclick=doParentLogin;content.appendChild(btn2);
+    } else {
+      var err3=document.createElement("div");err3.className="pin-err";err3.id="pinErr";err3.textContent=state.pinError||"";content.appendChild(err3);
+    }
+  }
+  box.appendChild(content);screen.appendChild(box);app.appendChild(screen);
+}
+
+function doTeacherLogin(){
+  var inp=document.getElementById("tPin");if(!inp)return;
+  var pin=inp.value.toUpperCase();
+  if(checkTeacherPin(pin)){state.mode="teacher";state.tab="dashboard";state.pinError="";render();}
+  else{state.pinError="PIN이 올바르지 않습니다.";inp.classList.add("error");setTimeout(function(){inp.classList.remove("error");},400);inp.value="";var err=document.getElementById("pinErr");if(err)err.textContent=state.pinError;}
+}
+function doParentLogin(){
+  var inp=document.getElementById("pPin");if(!inp)return;
+  var pin=inp.value.toUpperCase();var st=getStudentById(state.parentStudentId);if(!st)return;
+  if(checkStudentPin(st,pin)){state.mode="parent";state.pinError="";render();}
+  else{state.pinError="PIN이 올바르지 않습니다.";inp.classList.add("error");setTimeout(function(){inp.classList.remove("error");},400);inp.value="";var err=document.getElementById("pinErr");if(err)err.textContent=state.pinError;}
+}
+window.doLogout=function(){state.mode="login";state.role="teacher";state.parentStudentId=null;state.pinError="";state.tab="dashboard";state.selectedId=null;state.editingReport=null;state.parentTab="reports";render();};
+
+// ═══ PARENT VIEW ═══
+function renderParent(){
+  var st=getStudentById(state.parentStudentId);
+  if(!st){doLogout();return;}
+  var reports=(st.reports||[]).slice().sort(function(a,b){return b.monthKey.localeCompare(a.monthKey);});
+  var pTab=state.parentTab||"reports";
+  var rm=state.roadmap[st.grade]||{};
+
+  // Build using DOM for tabs
+  var app=document.getElementById("app");app.innerHTML="";
+
+  // Header
+  var hdr=document.createElement("div");hdr.className="hdr";
+  hdr.innerHTML='<div style="display:flex;align-items:center;gap:12px"><div class="hdr-icon"><span>LU</span></div><div><div style="font-family:Georgia,serif;font-weight:900;font-size:18px;color:#1B4332">Lit You Up</div><div style="font-size:10px;color:#9A958C">학부모 열람</div></div></div>';
+  var hdrRight=document.createElement("div");hdrRight.style.cssText="display:flex;align-items:center;gap:8px";
+  var badge=document.createElement("span");badge.style.cssText="background:#FFF3E0;color:#BF360C;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700";badge.textContent="👨‍👩‍👧 "+st.name+" 학부모";hdrRight.appendChild(badge);
+  var logoutBtn=document.createElement("button");logoutBtn.style.cssText="padding:6px 12px;border-radius:8px;border:1px solid #E8E4DE;background:white;cursor:pointer;font-size:12px;color:#7A7267;font-family:inherit";logoutBtn.textContent="로그아웃";logoutBtn.onclick=doLogout;hdrRight.appendChild(logoutBtn);
+  hdr.appendChild(hdrRight);app.appendChild(hdr);
+
+  // Nav tabs
+  var navWrap=document.createElement("div");navWrap.className="nav-wrap";
+  var tb=document.createElement("div");tb.className="tb";
+  [{id:"reports",l:"📋 월별 리포트"},{id:"roadmap",l:"◈ 로드맵"}].forEach(function(t){
+    var btn=document.createElement("button");btn.className="ti"+(pTab===t.id?" on":"");btn.textContent=t.l;
+    (function(id){btn.onclick=function(){state.parentTab=id;render();};}) (t.id);
+    tb.appendChild(btn);
+  });
+  navWrap.appendChild(tb);app.appendChild(navWrap);
+
+  // Main content
+  var main=document.createElement("div");main.className="main";
+
+  // Profile
+  var profile=document.createElement("div");
+  profile.innerHTML='<div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding:18px;background:white;border-radius:14px;border:1px solid #E8E4DE"><div class="st-avatar" style="width:52px;height:52px;font-size:20px;flex-shrink:0">'+st.name.charAt(0)+'</div><div><div style="font-weight:800;font-size:18px">'+st.name+'</div><div style="font-size:12px;color:#9A958C">'+st.school+" · "+st.grade+'학년</div>'+(st.narrative?'<div style="font-size:12px;color:#2D6A4F;font-style:italic;margin-top:3px">"'+st.narrative+'"</div>':"")+'</div></div>';
+  main.appendChild(profile);
+
+  if(pTab==="reports"){
+    if(!reports.length){
+      var empty=document.createElement("div");empty.style.cssText="text-align:center;padding:60px 20px;color:#9A958C";empty.innerHTML='<div style="font-size:40px;margin-bottom:12px">📋</div><div style="font-weight:600">아직 작성된 리포트가 없어요</div>';main.appendChild(empty);
+    } else {
+      reports.forEach(function(r){
+        var card=document.createElement("div");card.className="parent-card";
+        var scores=[{l:"GPA",v:r.gpa||"-",bg:"#E8F5E9",c:"#1B4332"},{l:"루틴 달성률",v:(r.routineRate||"-")+"%",bg:"#FFF8E1",c:"#E65100"},{l:"학습 태도",v:r.attitudeScore?("⭐".repeat(parseInt(r.attitudeScore))):"-",bg:"#F3E8FF",c:"#6A1B9A"}];
+        var scoreHTML=scores.map(function(x){return '<div style="background:'+x.bg+';padding:12px;border-radius:10px;text-align:center"><div style="font-size:10px;color:#7A7267">'+x.l+'</div><div style="font-size:16px;font-weight:900;color:'+x.c+';margin-top:4px">'+x.v+'</div></div>';}).join("");
+        var dateStr=r.updatedAt?new Date(r.updatedAt).toLocaleDateString("ko-KR"):"";
+        card.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #F0EDE8"><span class="parent-pill">'+monthLabel(r.monthKey)+'</span><span style="font-size:11px;color:#9A958C">'+dateStr+'</span></div>'+
+          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">'+scoreHTML+'</div>'+
+          (r.academicProgress?'<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:#9A958C;margin-bottom:5px">📚 학습 진도</div><div style="font-size:13px;color:#3A3530;line-height:1.7;white-space:pre-wrap">'+r.academicProgress+'</div></div>':"")+
+          (r.goal?'<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:#9A958C;margin-bottom:5px">🎯 이번 달 목표</div><div style="font-size:13px;color:#3A3530;line-height:1.7">'+r.goal+'</div>'+(r.goalResult?'<div style="margin-top:6px;padding:6px 10px;background:#F0FAF5;border-radius:8px;font-size:12px;color:#2D6A4F;font-weight:600">달성 결과: '+r.goalResult+'</div>':"")+'</div>':"")+
+          (r.habitNote?'<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:#9A958C;margin-bottom:5px">🔄 루틴 & 습관</div><div style="font-size:13px;color:#3A3530;line-height:1.7;white-space:pre-wrap">'+r.habitNote+'</div></div>':"")+
+          (r.teacherComment?'<div class="p-comment"><div style="font-size:10px;font-weight:800;color:#1B4332;margin-bottom:6px">💬 선생님 코멘트</div><div style="font-size:13px;color:#2D6A4F;line-height:1.7;font-style:italic;white-space:pre-wrap">'+r.teacherComment+'</div></div>':"")+
+          (r.nextPlan?'<div class="p-next"><div style="font-size:10px;font-weight:800;color:#E65100;margin-bottom:6px">📅 다음 달 계획</div><div style="font-size:13px;color:#5A5550;line-height:1.7;white-space:pre-wrap">'+r.nextPlan+'</div></div>':"");
+        main.appendChild(card);
+      });
+    }
+  } else {
+    var rmLines=(rm.content||"").split("\n").filter(function(l){return l.trim();});
+    var rmCard=document.createElement("div");rmCard.className="card";
+    if(!rmLines.length){
+      rmCard.innerHTML='<div style="text-align:center;padding:40px;color:#9A958C">선생님이 로드맵을 작성하면 여기서 확인할 수 있어요</div>';
+    } else {
+      rmCard.innerHTML='<div style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #E8E4DE"><div style="font-size:18px;font-weight:900;color:#1B4332">'+st.grade+'학년 로드맵</div><div style="font-size:13px;color:#7A7267;margin-top:4px">'+(rm.title||"")+(rm.sub?" — "+rm.sub:"")+'</div></div>'+
+        rmLines.map(function(line){return '<div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid #F5F3EF"><span style="color:#2D6A4F;flex-shrink:0">✦</span><span style="font-size:13px;line-height:1.6;color:#3A3530">'+line+'</span></div>';}).join("");
+    }
+    main.appendChild(rmCard);
+  }
+  app.appendChild(main);
+}
+
+// ═══ TEACHER VIEW ═══
+function renderTeacher(){
+  var s=state;
+  var avg=s.students.length?(s.students.reduce(function(a,x){return a+parseFloat(x.gpa||0);},0)/s.students.length).toFixed(2):"—";
+  var avgR=s.students.length?Math.round(s.students.reduce(function(a,x){return a+x.routineRate;},0)/s.students.length):0;
+  var tabs=[{id:"dashboard",l:"⊞ 대시보드"},{id:"students",l:"◉ 학생 관리"},{id:"monthly",l:"📋 월별 리포트"},{id:"roadmap",l:"◈ 로드맵"},{id:"settings",l:"⚙️ 설정"}];
+  var content="";
+
+  if(s.tab==="dashboard"){
+    var statCards=[{l:"전체 학생",v:s.students.length,u:"명",bg:"#1B4332"},{l:"평균 루틴",v:avgR,u:"%",bg:"#2D6A4F"},{l:"이번달 리포트",v:s.students.filter(function(st){return(st.reports||[]).some(function(r){return r.monthKey===currentMonthKey();});}).length,u:"건",bg:"#40916C"},{l:"평균 GPA",v:avg,u:"",bg:"#52B788"}];
+    content+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:20px"><div><div class="st">Dashboard</div><div class="ss">전체 학생 현황 '+(firebaseReady?"· ☁️ Firebase 연동":"· 💾 로컬 저장")+'</div></div><button class="btn bp" onclick="showAddModal()">+ 학생 추가</button></div>';
+    content+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:22px">'+statCards.map(function(x){return '<div class="card" style="text-align:center;padding:18px;background:'+x.bg+';border:none"><div style="font-size:28px;font-weight:900;color:white">'+x.v+'<span style="font-size:13px;opacity:.7">'+x.u+'</span></div><div style="font-size:11px;color:rgba(255,255,255,.7);margin-top:2px">'+x.l+'</div></div>';}).join("")+'</div>';
+    // Student cards using DOM to avoid quote issues
+    var tempDiv=document.createElement("div");
+    s.students.forEach(function(st){
+      var cur=(st.reports||[]).some(function(r){return r.monthKey===currentMonthKey();});
+      var card=document.createElement("div");card.className="card click";card.style.marginBottom="12px";
+      card.innerHTML='<div style="display:flex;justify-content:space-between;align-items:start;gap:16px;flex-wrap:wrap"><div style="flex:1;min-width:200px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:5px"><span style="font-weight:800;font-size:17px">'+st.name+'</span><span class="tag" style="background:#E8F5E9;color:#1B4332">'+st.grade+'학년</span>'+(cur?'<span class="tag" style="background:#E3F2FD;color:#1565C0">📋 완료</span>':'<span class="tag" style="background:#FFF8E1;color:#E65100">📋 미작성</span>')+'</div><div style="font-size:12px;color:#7A7267;margin-bottom:5px">'+st.school+'</div>'+(st.narrative?'<div style="font-size:12px;color:#2D6A4F;font-style:italic">"'+st.narrative+'"</div>':"")+
+        '</div><div style="display:flex;gap:14px;align-items:center"><div style="text-align:center">'+ringSVG(st.routineRate,56,4)+'<div style="font-size:10px;color:#7A7267;margin-top:3px">루틴</div></div><div style="text-align:center"><div style="font-size:24px;font-weight:900;color:#1B4332">'+st.gpa+'</div><div style="font-size:10px;color:#7A7267">GPA</div></div></div></div>';
+      (function(id){card.onclick=function(){state.selectedId=id;state.detailTab="overview";state.tab="students";render();};}) (st.id);
+      tempDiv.appendChild(card);
+    });
+    content+=tempDiv.innerHTML;
+  }
+
+  else if(s.tab==="students"){
+    var st=getStudent();
+    if(!st){
+      content='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px"><div><div class="st">학생 관리</div><div class="ss">클릭하여 상세 편집</div></div><button class="btn bp" onclick="showAddModal()">+ 학생 추가</button></div>';
+      var stGrid=document.createElement("div");stGrid.style.cssText="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px";
+      s.students.forEach(function(st2){
+        var c=document.createElement("div");c.className="card click";c.style.position="relative";
+        c.innerHTML='<div style="font-weight:800;font-size:16px">'+st2.name+'</div><div style="font-size:12px;color:#7A7267;margin-bottom:8px">'+st2.school+" · "+st2.grade+'학년</div><div style="font-size:12px;color:#5A5550;margin-bottom:4px">📞 '+(st2.phone||"전화번호 미입력")+'</div><div style="font-size:12px;color:#5A5550;margin-bottom:6px">PIN: <code style="background:#F5F3EF;padding:2px 6px;border-radius:4px;font-size:11px">'+(st2.pin||"미설정")+'</code></div><div style="display:flex;gap:12px;font-size:12px;color:#5A5550"><span>GPA <strong>'+st2.gpa+'</strong></span><span>리포트 <strong>'+(st2.reports||[]).length+'건</strong></span></div>';
+        var delBtn=document.createElement("button");delBtn.className="del-btn";delBtn.style.cssText="position:absolute;top:12px;right:12px";delBtn.textContent="✕";
+        (function(id){delBtn.onclick=function(e){e.stopPropagation();removeStudent(id);};c.onclick=function(){state.selectedId=id;state.detailTab="overview";render();};}) (st2.id);
+        c.appendChild(delBtn);stGrid.appendChild(c);
+      });
+      content+=stGrid.outerHTML;
+    } else {
+      var subtabs=[{id:"overview",l:"Overview"},{id:"courses",l:"수강 과목"},{id:"narrative",l:"📖 서사"},{id:"pin",l:"🔑 PIN/연락처"}];
+      var detail="";
+      if(s.detailTab==="overview"){
+        detail='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">';
+        detail+='<div class="card"><div style="font-size:15px;font-weight:700;margin-bottom:14px">📊 기본 정보</div><div style="display:grid;gap:10px">';
+        detail+='<div><div style="font-size:11px;color:#7A7267">이름</div>'+efn(st.name,"updateStudent('"+st.id+"',{name:__VAL__})","font-size:16px;font-weight:700")+'</div>';
+        detail+='<div><div style="font-size:11px;color:#7A7267">학교</div>'+efn(st.school,"updateStudent('"+st.id+"',{school:__VAL__})","font-size:13px")+'</div>';
+        detail+='<div style="display:flex;gap:16px"><div><div style="font-size:11px;color:#7A7267">GPA</div>'+efn(st.gpa,"updateStudent('"+st.id+"',{gpa:__VAL__})","font-size:20px;font-weight:900;color:#1B4332")+'</div><div><div style="font-size:11px;color:#7A7267">루틴%</div>'+efn(String(st.routineRate),"updateStudent('"+st.id+"',{routineRate:parseInt(__VAL__)||0})","font-size:20px;font-weight:900;color:#E65100")+'</div></div>';
+        detail+='<div><div style="font-size:11px;color:#7A7267">관심 분야</div>'+efn(st.interests,"updateStudent('"+st.id+"',{interests:__VAL__})","font-size:13px","관심 분야")+'</div>';
+        detail+='<div><div style="font-size:11px;color:#7A7267">핵심 서사</div>'+efn(st.narrative,"updateStudent('"+st.id+"',{narrative:__VAL__})","font-size:13px;color:#2D6A4F;font-style:italic","핵심 서사")+'</div>';
+        detail+='</div></div><div class="card"><div style="font-size:15px;font-weight:700;margin-bottom:14px">📝 컨설턴트 노트</div>'+efn(st.notes,"updateStudent('"+st.id+"',{notes:__VAL__})","font-size:13px;line-height:1.7;color:#3A3530","관찰 사항",true)+'</div></div>';
+      }
+      else if(s.detailTab==="courses"){
+        detail='<div style="background:#1B4332;border-radius:12px;padding:14px 18px;margin-bottom:14px;color:white"><div style="font-size:15px;font-weight:700">📖 수강 과목</div></div>';
+        var addCourseBtn=document.createElement("button");
+        addCourseBtn.style.cssText="margin-bottom:12px;padding:6px 14px;border-radius:8px;border:1.5px dashed #B0A99F;background:transparent;color:#7A7267;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit";
+        addCourseBtn.textContent="+ 과목 추가";
+        (function(id){addCourseBtn.onclick=function(){var c=(state.students.find(function(x){return x.id===id;}).courses||[]).concat([{name:"New Course",type:"Regular",grade:"—"}]);updateStudent(id,{courses:c});};}) (st.id);
+        var courseDiv=document.createElement("div");courseDiv.innerHTML=detail;courseDiv.appendChild(addCourseBtn);
+        (st.courses||[]).forEach(function(c,i){
+          var cCard=document.createElement("div");cCard.className="card";cCard.style.cssText="margin-bottom:8px;padding:14px";
+          cCard.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div style="display:flex;align-items:center;gap:10px;flex:1">'+courseTag(c.type)+efn(c.name,"var c=state.students.find(function(x){return x.id==='"+st.id+"';}).courses.slice();c["+i+"]={...c["+i+"],name:__VAL__};updateStudent('"+st.id+"',{courses:c})","font-size:14px;font-weight:600")+'</div><div style="display:flex;align-items:center;gap:10px">'+efn(c.grade,"var c=state.students.find(function(x){return x.id==='"+st.id+"';}).courses.slice();c["+i+"]={...c["+i+"],grade:__VAL__};updateStudent('"+st.id+"',{courses:c})","font-size:18px;font-weight:900;color:#1B4332")+'</div></div>';
+          var delCBtn=document.createElement("button");delCBtn.className="del-btn";
+          (function(idx2){delCBtn.onclick=function(){var c=state.students.find(function(x){return x.id===st.id;}).courses.filter(function(_,j){return j!==idx2;});updateStudent(st.id,{courses:c});};}) (i);
+          delCBtn.textContent="✕";cCard.querySelector("div>div:last-child").appendChild(delCBtn);
+          courseDiv.appendChild(cCard);
+        });
+        detail=courseDiv.innerHTML;
+      }
+      else if(s.detailTab==="narrative"){
+        var tlDiv=document.createElement("div");
+        tlDiv.innerHTML='<div style="background:#1B4332;border-radius:12px;padding:14px 18px;margin-bottom:14px;color:white"><div style="font-size:15px;font-weight:700">📖 서사 타임라인</div></div>';
+        var tlCard=document.createElement("div");tlCard.className="card";
+        var tlInner=document.createElement("div");tlInner.style.cssText="position:relative;padding-left:28px";
+        var tlLine=document.createElement("div");tlLine.style.cssText="position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:linear-gradient(180deg,#2D6A4F,#95D5B2)";
+        tlInner.appendChild(tlLine);
+        (st.narrativeTimeline||[]).forEach(function(n){
+          var item=document.createElement("div");item.style.cssText="position:relative;margin-bottom:22px";
+          item.innerHTML='<div style="position:absolute;left:-24px;top:4px;width:13px;height:13px;border-radius:50%;background:#2D6A4F;border:3px solid #E8F5E9"></div><div style="font-size:11px;color:#9A958C;font-weight:700;margin-bottom:3px">'+n.date+'</div><div style="font-weight:700;font-size:14px;margin-bottom:4px">'+n.event+'</div><div style="font-size:12px;color:#2D6A4F;font-style:italic;padding:6px 10px;background:#F0FAF5;border-radius:6px;border-left:3px solid #52B788">💡 '+n.insight+'</div>';
+          tlInner.appendChild(item);
+        });
+        tlCard.appendChild(tlInner);tlDiv.appendChild(tlCard);
+        var addTlBtn=document.createElement("button");addTlBtn.style.cssText="margin-top:10px;padding:6px 14px;border-radius:8px;border:1.5px dashed #B0A99F;background:transparent;color:#7A7267;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit";addTlBtn.textContent="+ 타임라인 추가";
+        (function(id){addTlBtn.onclick=function(){var t=(state.students.find(function(x){return x.id===id;}).narrativeTimeline||[]).concat([{date:"2026-03",event:"새 이벤트",insight:"인사이트"}]);updateStudent(id,{narrativeTimeline:t});};}) (st.id);
+        tlDiv.appendChild(addTlBtn);
+        detail=tlDiv.innerHTML;
+      }
+      else if(s.detailTab==="pin"){
+        detail='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">';
+        detail+='<div class="card"><div style="font-size:15px;font-weight:700;margin-bottom:14px">🔑 학부모 PIN</div>';
+        detail+='<div style="font-size:12px;color:#5A5550;margin-bottom:14px;line-height:1.6">형식: 영문 1자리 + 숫자 5자리 (예: A12345)</div>';
+        detail+='<div class="fg"><label class="lbl">현재 PIN</label><div style="padding:12px 16px;background:#F5F3EF;border-radius:10px;font-size:18px;font-weight:800;letter-spacing:4px;color:#1B4332">'+(st.pin||"미설정")+'</div></div>';
+        detail+='<div class="fg"><label class="lbl">새 PIN 설정</label><div style="display:flex;gap:8px"><input id="newPinVal" type="text" maxlength="6" placeholder="A12345" class="inp" style="flex:1;font-size:16px;font-weight:700;letter-spacing:4px;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"><button class="btn bp" onclick="doSetPin(\''+st.id+'\')">저장</button></div><div id="pinMsg" style="font-size:12px;margin-top:6px"></div></div></div>';
+        detail+='<div class="card"><div style="font-size:15px;font-weight:700;margin-bottom:14px">📱 연락처 & 카카오톡</div>';
+        detail+='<div class="fg"><label class="lbl">학부모 전화번호</label>'+efn(st.phone||"","updateStudent('"+st.id+"',{phone:__VAL__})","font-size:13px","010-0000-0000")+'</div>';
+        detail+='<div class="fg"><label class="lbl">카카오 오픈채팅 링크</label>'+efn(st.kakaoLink||"","updateStudent('"+st.id+"',{kakaoLink:__VAL__})","font-size:12px;color:#2D6A4F","https://open.kakao.com/o/...")+'</div></div></div>';
+      }
+      content='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px"><div><div class="st">'+st.name+'</div><div class="ss">'+st.school+" · "+st.grade+'학년</div></div><button class="btn bo" onclick="state.selectedId=null;render()">← 목록</button></div>';
+      content+='<div style="display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap">'+subtabs.map(function(t){return '<button class="stb'+(s.detailTab===t.id?" on":"")+'" onclick="state.detailTab=\''+t.id+'\';render()">'+t.l+'</button>';}).join("")+'</div>';
+      content+=detail;
+    }
+  }
+
+  else if(s.tab==="monthly"){
+    var months=getMonths();
+    if(!s.selectedId){
+      content='<div class="st" style="margin-bottom:5px">📋 월별 리포트</div><div class="ss">학생을 선택해 리포트를 작성하세요</div>';
+      var mGrid=document.createElement("div");mGrid.style.cssText="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px";
+      s.students.forEach(function(st2){
+        var cur2=(st2.reports||[]).some(function(r){return r.monthKey===currentMonthKey();});
+        var total2=(st2.reports||[]).length;
+        var mc=document.createElement("div");mc.className="card click";
+        mc.innerHTML='<div style="font-weight:800;font-size:16px;margin-bottom:4px">'+st2.name+'</div><div style="font-size:12px;color:#9A958C;margin-bottom:12px">'+st2.school+" · "+st2.grade+'학년</div><div style="display:flex;gap:8px;flex-wrap:wrap">'+(cur2?'<span class="tag" style="background:#E8F5E9;color:#1B4332">✅ 이번달 완료</span>':'<span class="tag" style="background:#FFF8E1;color:#E65100">⚠️ 미작성</span>')+'<span class="tag" style="background:#F0F0F0;color:#5A5550">누적 '+total2+'건</span></div>';
+        (function(id,mk){mc.onclick=function(){state.selectedId=id;state.editingReport={studentId:id,monthKey:mk};render();};}) (st2.id,currentMonthKey());
+        mGrid.appendChild(mc);
+      });
+      content+=mGrid.outerHTML;
+    } else {
+      var stR=getStudentById(s.selectedId);
+      if(!stR){state.selectedId=null;render();return;}
+      content='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px"><div><div class="st">'+stR.name+' 리포트</div><div class="ss">월별 리포트 작성 및 히스토리</div></div><button class="btn bo" onclick="state.selectedId=null;state.editingReport=null;render()">← 목록</button></div>';
+
+      // Month picker using DOM
+      var mpDiv=document.createElement("div");mpDiv.className="card";mpDiv.style.marginBottom="14px";
+      mpDiv.innerHTML='<div style="font-size:14px;font-weight:700;margin-bottom:10px">📅 월 선택</div>';
+      var mpBtns=document.createElement("div");mpBtns.style.cssText="display:flex;gap:8px;flex-wrap:wrap";
+      months.forEach(function(mk){
+        var exists=(stR.reports||[]).some(function(r){return r.monthKey===mk;});
+        var isActive=s.editingReport&&s.editingReport.studentId===stR.id&&s.editingReport.monthKey===mk;
+        var mbtn=document.createElement("button");
+        mbtn.style.cssText="padding:6px 12px;border-radius:8px;border:2px solid "+(isActive?"#1B4332":"#E8E4DE")+";background:"+(isActive?"#1B4332":exists?"#E8F5E9":"white")+";color:"+(isActive?"white":exists?"#1B4332":"#5A5550")+";cursor:pointer;font-size:12px;font-weight:700;font-family:inherit";
+        mbtn.textContent=monthLabel(mk)+(exists?" ✓":"");
+        (function(m){mbtn.onclick=function(){state.editingReport={studentId:stR.id,monthKey:m};render();};}) (mk);
+        mpBtns.appendChild(mbtn);
+      });
+      mpDiv.appendChild(mpBtns);
+      content+=mpDiv.outerHTML;
+
+      // Editor
+      if(s.editingReport&&s.editingReport.studentId===stR.id){
+        var mk2=s.editingReport.monthKey;
+        var rpt=getReport(stR.id,mk2)||{};
+        var attScore=parseInt(rpt.attitudeScore)||0;
+        var stars=[1,2,3,4,5].map(function(i){return '<span class="star" onclick="setAttScore('+i+')" style="font-size:22px;cursor:pointer">'+(i<=attScore?"⭐":"☆")+'</span>';}).join("");
+        content+='<div class="rpt-card">';
+        content+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span class="rpt-pill">📋 '+monthLabel(mk2)+'</span><button class="btn bp" onclick="saveRpt(\''+stR.id+'\',\''+mk2+'\')">💾 저장</button></div>';
+        content+='<div class="rpt-sec"><div class="rpt-sec-ttl">📊 학습 진도 & GPA</div><div style="display:flex;gap:10px;margin-bottom:10px"><div style="flex:1"><div style="font-size:11px;color:#9A958C;margin-bottom:4px">GPA</div><input id="rGpa" value="'+(rpt.gpa||stR.gpa||"")+'" class="inp" style="font-size:14px;font-weight:700" placeholder="예: 3.85"></div><div style="flex:1"><div style="font-size:11px;color:#9A958C;margin-bottom:4px">루틴 달성률 (%)</div><input id="rRoutine" value="'+(rpt.routineRate||stR.routineRate||"")+'" class="inp" style="font-size:14px;font-weight:700" placeholder="예: 82"></div></div><textarea id="rAcademic" class="ta" rows="3" placeholder="이번 달 학습 진도, 주요 성과...">'+(rpt.academicProgress||"")+'</textarea></div>';
+        content+='<div class="rpt-sec"><div class="rpt-sec-ttl">🧠 태도 & 메타인지</div><div style="margin-bottom:8px"><div style="font-size:11px;color:#9A958C;margin-bottom:4px">태도 점수</div><div class="star-row" id="starRow">'+stars+'</div><input type="hidden" id="rAttScore" value="'+attScore+'"></div><textarea id="rAttitude" class="ta" rows="3" placeholder="집중력, 자기조절, 메타인지 관찰...">'+(rpt.attitude||"")+'</textarea></div>';
+        content+='<div class="rpt-sec"><div class="rpt-sec-ttl">🎯 이번 달 목표 & 달성</div><textarea id="rGoal" class="ta" rows="2" placeholder="이번 달 목표...">'+(rpt.goal||"")+'</textarea><textarea id="rGoalResult" class="ta" rows="2" style="margin-top:8px" placeholder="달성 결과...">'+(rpt.goalResult||"")+'</textarea></div>';
+        content+='<div class="rpt-sec"><div class="rpt-sec-ttl">🔄 루틴 & 습관</div><textarea id="rHabit" class="ta" rows="3" placeholder="루틴 준수 현황...">'+(rpt.habitNote||"")+'</textarea></div>';
+        content+='<div class="rpt-sec"><div class="rpt-sec-ttl" style="color:#1B4332;font-size:14px">💬 선생님 코멘트 (학부모 전달)</div><textarea id="rComment" class="ta" rows="4" style="border-color:#C8E6C9;background:#F0FAF5" placeholder="학부모님께 전달할 핵심 메시지...">'+(rpt.teacherComment||"")+'</textarea></div>';
+        content+='<div class="rpt-sec"><div class="rpt-sec-ttl">📅 다음 달 계획</div><textarea id="rNext" class="ta" rows="3" placeholder="다음 달 목표, 준비 사항...">'+(rpt.nextPlan||"")+'</textarea></div>';
+        content+='<div style="display:flex;flex-direction:column;gap:8px"><button class="btn bp" onclick="saveRpt(\''+stR.id+'\',\''+mk2+'\')">💾 리포트 저장</button><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn bk" onclick="shareKakao(\''+stR.id+'\',\''+mk2+'\')">💬 카카오톡 공유</button><button class="btn bs" onclick="shareSMS(\''+stR.id+'\',\''+mk2+'\')">📱 문자 보내기</button></div></div></div>';
+      } else {
+        content+='<div style="text-align:center;padding:30px;color:#9A958C;font-size:13px">위에서 월을 선택해 리포트를 작성하세요</div>';
+      }
+
+      // History using DOM
+      var histReports=(stR.reports||[]).slice().sort(function(a,b){return b.monthKey.localeCompare(a.monthKey);});
+      if(histReports.length){
+        var histDiv=document.createElement("div");
+        histDiv.innerHTML='<div style="font-size:14px;font-weight:700;margin:20px 0 10px">📂 리포트 히스토리</div>';
+        histReports.forEach(function(r){
+          var hi=document.createElement("div");hi.className="hist-item";
+          var dateStr2=r.updatedAt?new Date(r.updatedAt).toLocaleDateString("ko-KR"):"";
+          hi.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:14px;font-weight:800;color:#1B4332">'+monthLabel(r.monthKey)+'</div><span style="font-size:11px;color:#9A958C">'+dateStr2+'</span></div><div style="font-size:12px;color:#7A7267;margin-top:4px">'+(r.teacherComment?'"'+r.teacherComment.substring(0,60)+'..."':"리포트 작성됨")+'</div>';
+          var shareDiv=document.createElement("div");shareDiv.className="share-row";
+          var kBtn=document.createElement("button");kBtn.className="btn bk";kBtn.style.cssText="font-size:11px;padding:5px 10px";kBtn.textContent="💬 카카오톡";
+          var sBtn=document.createElement("button");sBtn.className="btn bs";sBtn.style.cssText="font-size:11px;padding:5px 10px";sBtn.textContent="📱 문자";
+          (function(sid,mk){
+            hi.onclick=function(){state.editingReport={studentId:sid,monthKey:mk};render();};
+            kBtn.onclick=function(e){e.stopPropagation();shareKakao(sid,mk);};
+            sBtn.onclick=function(e){e.stopPropagation();shareSMS(sid,mk);};
+          }) (stR.id,r.monthKey);
+          shareDiv.appendChild(kBtn);shareDiv.appendChild(sBtn);hi.appendChild(shareDiv);histDiv.appendChild(hi);
+        });
+        content+=histDiv.outerHTML;
+      }
+    }
+  }
+
+  else if(s.tab==="roadmap"){
+    var rmGrade=s.roadmapGrade||"9";
+    var rmData=s.roadmap[rmGrade]||{title:"",sub:"",content:""};
+    var gradeDiv=document.createElement("div");gradeDiv.style.cssText="display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap";
+    GRADES.forEach(function(g){
+      var gbtn=document.createElement("button");
+      gbtn.style.cssText="padding:7px 12px;border-radius:10px;border:2px solid;cursor:pointer;font-weight:800;font-size:12px;font-family:inherit;background:"+(s.roadmapGrade===g?"#1B4332":"white")+";color:"+(s.roadmapGrade===g?"white":"#1B4332")+";border-color:"+(s.roadmapGrade===g?"#1B4332":"#D1CBC0");
+      gbtn.textContent=g+"학년";
+      (function(gr){gbtn.onclick=function(){state.roadmapGrade=gr;render();};}) (g);
+      gradeDiv.appendChild(gbtn);
+    });
+    content='<div class="st" style="margin-bottom:5px">◈ 학년별 로드맵</div><div class="ss">교사가 직접 작성 · 저장하면 학부모에게 바로 공개됩니다</div>';
+    content+=gradeDiv.outerHTML;
+    content+='<div class="card"><div style="font-size:16px;font-weight:800;color:#1B4332;margin-bottom:16px">'+rmGrade+'학년 로드맵</div>';
+    content+='<div class="fg"><label class="lbl">제목 (예: Foundation)</label><input id="rmTitle" class="inp" value="'+(rmData.title||"")+'" placeholder="로드맵 제목"></div>';
+    content+='<div class="fg"><label class="lbl">부제목 (예: 기반 구축의 해)</label><input id="rmSub" class="inp" value="'+(rmData.sub||"")+'" placeholder="부제목"></div>';
+    content+='<div class="fg"><label class="lbl">내용 (줄바꿈으로 항목 구분)</label><textarea id="rmContent" class="ta" rows="10" placeholder="GPA 관리 시스템&#10;Honors 수강 시작&#10;에세이 역량 강화">'+(rmData.content||"")+'</textarea></div>';
+    content+='<button class="btn bp" onclick="saveRoadmap(\''+rmGrade+'\')">💾 저장 (학부모에게 바로 공개)</button></div>';
+  }
+
+  else if(s.tab==="settings"){
+    content='<div class="st" style="margin-bottom:5px">⚙️ 설정</div><div class="ss">시스템 설정</div>';
+    content+='<div class="card" style="margin-bottom:14px"><div style="font-size:15px;font-weight:700;margin-bottom:14px">📧 이메일 설정</div>';
+    content+='<div class="fg"><label class="lbl">교사 이메일</label><input id="cfgEmail" class="inp" type="email" value="'+s.teacherEmail+'" placeholder="marcus@gmail.com"></div>';
+    content+='<div class="fg"><label class="lbl">Apps Script URL</label><input id="cfgScript" class="inp" type="text" value="'+s.appsScriptUrl+'" placeholder="https://script.google.com/macros/s/..."></div>';
+    content+='<button class="btn bp" onclick="saveSettings()">저장</button><div id="cfgMsg" style="margin-top:8px;font-size:12px;color:#2D6A4F;font-weight:600"></div></div>';
+    content+='<div class="card"><div style="font-size:15px;font-weight:700;margin-bottom:12px">☁️ Firebase 상태</div><div style="font-size:13px;line-height:1.7;color:#5A5550">'+(firebaseReady?'<span style="color:#2D6A4F;font-weight:700">✅ Firebase 연동됨</span><br>교사가 저장하면 학부모가 즉시 볼 수 있습니다.':"<span style='color:#E65100;font-weight:700'>⚠️ Firebase 미연동</span>")+'</div></div>';
+  }
+
+  // Build add modal using DOM
+  var addModalDiv=document.createElement("div");addModalDiv.id="addModal";addModalDiv.className="modal-ov";addModalDiv.style.display="none";
+  addModalDiv.onclick=function(e){if(e.target===addModalDiv)hideAddModal();};
+  var addModalInner=document.createElement("div");addModalInner.className="modal";addModalInner.onclick=function(e){e.stopPropagation();};
+  addModalInner.innerHTML='<div style="font-size:18px;font-weight:800;margin-bottom:20px;color:#1B4332">새 학생 추가</div>'+
+    '<div class="fg"><label class="lbl">이름 *</label><input id="nName" class="inp" placeholder="학생 이름"></div>'+
+    '<div class="fg"><label class="lbl">학교</label><input id="nSchool" class="inp" placeholder="학교 이름"></div>'+
+    '<div class="fg"><label class="lbl">학년</label><div id="gradeGrid" style="display:flex;gap:5px;flex-wrap:wrap"></div></div>'+
+    '<input type="hidden" id="nGrade" value="9">'+
+    '<div class="fg"><label class="lbl">학부모 PIN (영문1+숫자5) *</label><input id="nPin" class="inp" placeholder="A12345" maxlength="6" style="letter-spacing:4px;font-weight:700;font-size:16px;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"><div id="nPinErr" style="font-size:11px;color:#C62828;margin-top:4px"></div></div>'+
+    '<div class="fg"><label class="lbl">학부모 전화번호</label><input id="nPhone" class="inp" placeholder="010-0000-0000"></div>'+
+    '<div class="fg"><label class="lbl">카카오 오픈채팅 링크</label><input id="nKakao" class="inp" placeholder="https://open.kakao.com/o/..."></div>'+
+    '<div style="display:flex;gap:10px"><button class="btn" style="flex:1;border:1.5px solid #E8E4DE;background:white" onclick="hideAddModal()">취소</button><button class="btn bp" style="flex:1" onclick="doAddStudent()">추가</button></div>';
+  addModalDiv.appendChild(addModalInner);
+
+  var hdrHTML='<div class="hdr"><div style="display:flex;align-items:center;gap:12px"><div class="hdr-icon"><span>LU</span></div><div><div style="font-family:Georgia,serif;font-weight:900;font-size:18px;color:#1B4332">Lit You Up</div><div style="font-size:10px;color:#9A958C;font-weight:600;letter-spacing:1.5px;text-transform:uppercase">Consulting System v4.0</div></div></div><div style="display:flex;align-items:center;gap:8px"><span style="background:#E8F5E9;color:#1B4332;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700">🎓 교사 모드</span><button onclick="doLogout()" style="padding:6px 12px;border-radius:8px;border:1px solid #E8E4DE;background:white;cursor:pointer;font-size:12px;color:#7A7267;font-family:inherit">로그아웃</button></div></div>';
+
+  // Build nav tabs using DOM
+  // Build nav HTML with inline onclick (outerHTML loses event listeners)
+  var navHTML='<div class="nav-wrap"><div class="tb">';
+  tabs.forEach(function(t){
+    navHTML+='<button class="ti'+(s.tab===t.id?" on":"")+'" onclick="state.tab=\''+t.id+'\';state.selectedId=null;state.editingReport=null;render()">'+t.l+'</button>';
+  });
+  navHTML+='</div></div>';
+
+  document.getElementById("app").innerHTML=hdrHTML+navHTML+'<div class="main">'+content+'</div>';
+  document.getElementById("app").appendChild(addModalDiv);
+
+  // Build grade buttons in modal
+  var gg=document.getElementById("gradeGrid");
+  if(gg){
+    GRADES.forEach(function(g){
+      var gb=document.createElement("button");gb.id="gB"+g;gb.style.cssText="padding:7px 10px;border-radius:10px;border:2px solid #E8E4DE;cursor:pointer;font-weight:800;font-size:12px;font-family:inherit;background:white;color:#1B4332";gb.textContent=g;
+      gb.onclick=function(){document.querySelectorAll("[id^=gB]").forEach(function(b){b.style.background="white";b.style.color="#1B4332";b.style.borderColor="#E8E4DE";});this.style.background="#1B4332";this.style.color="white";this.style.borderColor="#1B4332";document.getElementById("nGrade").value=g;};
+      gg.appendChild(gb);
+    });
+  }
+}
+
+// ═══ ACTIONS ═══
+window.saveRpt=function(studentId,mk){
+  var get=function(id){var el=document.getElementById(id);return el?el.value.trim():"";};
+  var data={gpa:get("rGpa"),routineRate:get("rRoutine"),academicProgress:get("rAcademic"),attitudeScore:get("rAttScore"),attitude:get("rAttitude"),goal:get("rGoal"),goalResult:get("rGoalResult"),habitNote:get("rHabit"),teacherComment:get("rComment"),nextPlan:get("rNext")};
+  saveReport(studentId,mk,data);showSaved();
+};
+window.setAttScore=function(n){document.getElementById("rAttScore").value=n;document.querySelectorAll("#starRow .star").forEach(function(s,i){s.textContent=i<n?"⭐":"☆";});};
+window.saveRoadmap=function(grade){
+  var t=(document.getElementById("rmTitle")||{}).value||"";
+  var sub=(document.getElementById("rmSub")||{}).value||"";
+  var c=(document.getElementById("rmContent")||{}).value||"";
+  state.roadmap[grade]={title:t,sub:sub,content:c};autoSave();showSaved();
+};
+window.saveSettings=function(){
+  state.appsScriptUrl=((document.getElementById("cfgScript")||{}).value||"").trim();
+  state.teacherEmail=((document.getElementById("cfgEmail")||{}).value||"").trim();
+  DS.save("config","settings",{appsScriptUrl:state.appsScriptUrl,teacherEmail:state.teacherEmail});
+  var msg=document.getElementById("cfgMsg");if(msg)msg.textContent="✅ 저장됐습니다.";
+};
+window.doSetPin=function(id){
+  var pin=((document.getElementById("newPinVal")||{}).value||"").toUpperCase();
+  if(!validatePin(pin)){var msg=document.getElementById("pinMsg");if(msg){msg.textContent="❌ 형식 오류: 영문1+숫자5";msg.style.color="#C62828";}return;}
+  updateStudent(id,{pin:pin});var msg=document.getElementById("pinMsg");if(msg){msg.textContent="✅ PIN: "+pin+"으로 설정됐습니다.";msg.style.color="#2D6A4F";}
+};
+window.doAddStudent=function(){
+  var name=((document.getElementById("nName")||{}).value||"").trim();
+  var school=((document.getElementById("nSchool")||{}).value||"").trim();
+  var grade=(document.getElementById("nGrade")||{}).value||"9";
+  var pin=((document.getElementById("nPin")||{}).value||"").toUpperCase();
+  var phone=((document.getElementById("nPhone")||{}).value||"").trim();
+  var kakao=((document.getElementById("nKakao")||{}).value||"").trim();
+  if(!name){alert("이름을 입력해주세요.");return;}
+  if(!validatePin(pin)){var err=document.getElementById("nPinErr");if(err)err.textContent="PIN 형식 오류: 영문1+숫자5 (예: A12345)";return;}
+  var id="s"+Date.now();
+  state.students.push({id:id,name:name,grade:grade,school:school||"학교 미정",pin:pin,phone:phone,kakaoLink:kakao,interests:"",gpa:"0.00",narrative:"",routineRate:0,notes:"",courses:[],activities:[],narrativeTimeline:[],reports:[]});
+  autoSave();hideAddModal();render();
+};
+window.removeStudent=function(id){
+  if(!confirm("정말 이 학생을 삭제하시겠습니까?"))return;
+  state.students=state.students.filter(function(s){return s.id!==id;});
+  if(state.selectedId===id)state.selectedId=null;
+  DS.remove("students",id);autoSave();render();
+};
+window.updateStudent=function(id,changes){
+  state.students=state.students.map(function(s){return s.id===id?Object.assign({},s,changes):s;});
+  autoSave();render();
+};
+
+// ═══ PWA ═══
+(function(){
+  var c=document.createElement("canvas");c.width=512;c.height=512;
+  var x=c.getContext("2d");
+  x.fillStyle="#1B4332";x.fillRect(0,0,512,512);
+  x.fillStyle="#F0C97A";x.font="bold 160px Georgia,serif";x.textAlign="center";x.textBaseline="middle";x.fillText("LU",256,210);
+  x.fillStyle="rgba(240,201,122,.7)";x.fillRect(90,295,332,2);
+  x.fillStyle="rgba(255,255,255,.8)";x.font="500 40px Georgia,serif";x.fillText("Lit You Up",256,348);
+  var icon=c.toDataURL("image/png");
+  var mf={name:"Lit You Up",short_name:"LitYouUp",start_url:"./",display:"standalone",orientation:"any",background_color:"#1B4332",theme_color:"#1B4332",icons:[{src:icon,sizes:"192x192",type:"image/png",purpose:"any maskable"},{src:icon,sizes:"512x512",type:"image/png",purpose:"any maskable"}]};
+  var ml=document.createElement("link");ml.rel="manifest";ml.href=URL.createObjectURL(new Blob([JSON.stringify(mf)],{type:"application/json"}));document.head.appendChild(ml);
+  var al=document.createElement("link");al.rel="apple-touch-icon";al.href=icon;document.head.appendChild(al);
+  var fl=document.createElement("link");fl.rel="icon";fl.type="image/png";fl.href=icon;document.head.appendChild(fl);
+  if("serviceWorker" in navigator){var sw="self.addEventListener('install',function(e){self.skipWaiting();});self.addEventListener('activate',function(e){clients.claim();});self.addEventListener('fetch',function(e){e.respondWith(caches.match(e.request).then(function(r){return r||fetch(e.request);}));});";navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:"application/javascript"}))).catch(function(){});}
+})();
+
+loadData();
+
+</script>
+</body>
+</html>
